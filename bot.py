@@ -3,7 +3,7 @@ import builtins, os, sys
 from requests import ReadTimeout, ConnectTimeout, HTTPError, Timeout, ConnectionError
 import config
 import methods
-from commands import Commands
+from commands import execute_command
 
 builtins.dir_path = os.path.dirname(os.path.realpath(__file__))
 builtins.mysql = methods.Mysql()
@@ -21,7 +21,7 @@ try:
             with open(dir_path+"/tg_TS", "w") as f:
                 f.write(str(Tg.getOffset()))
         for n in data['result']:
-            Commands(n)
+            execute_command(n)
 
 except KeyboardInterrupt:
     pass

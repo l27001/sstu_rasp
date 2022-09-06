@@ -1,96 +1,127 @@
-class Commands:
+from methods import getUserInfo, setUserState, sendErrorMessage
 
-    def __init__(self, data):
-        print(data)
-        if('my_chat_member' in data):
-            return None
-        elif('message' in data):
-            data = data['message']
-            if('text' not in data): # исключение/добавление участника приходит с элементом message
-                return None         # но без text в нём. Игнорируем такие события
-            self.from_user = data['from']['id']
-            self.from_chat = data['chat']['id']
-            if(self.from_chat < 0): self.is_chat = True
-            else: self.is_chat = False
-            self.text = data['text'].split()
-            self.msg_id = data['message_id']
-        elif('callback_query' in data): # возможно объединить?
-            self.from_user = data['callback_query']['message']['from']['id']
-            self.from_chat = data['callback_query']['message']['chat']['id']
-            if(self.from_chat < 0): self.is_chat = True
-            else: self.is_chat = False
-            self.text = None
-            self.msg_id = data['callback_query']['message']['message_id']
-            self.callback_data = data['callback_query']['data']
-            Tg.editMessageText(self.from_chat, self.msg_id, "Изменяю сообщение", Tg.generateInlineKeyb(Tg.makeButton("Кнопка1", "K1"), Tg.makeButton("Кнопка2", "K2")))
-            return None
-        if(self.is_chat):
-            self.chat_sub = mysql.query("SELECT * FROM users WHERE id = %s", (self.from_chat,))
-            if(self.chat_sub == None):
-                mysql.query("INSERT INTO users (id) VALUES (%s)", (self.from_chat,))
-                self.chat_sub = mysql.query("SELECT * FROM users WHERE id = %s", (self.from_chat,))
-            self.text[0] = self.text[0].split("@")
-            if(len(self.text[0]) > 1):
-                if(self.text[0][1] != Tg.username): # Фильтруем команды по тегу бота
-                    return None                     # Пример: /status@first_bot и /status@second_bot
-            self.text[0] = self.text[0][0] # убираем тег из команды
-        else: self.chat_sub = None
-        self.user_sub = mysql.query("SELECT * FROM users WHERE id = %s", (self.from_user,))
-        if(self.user_sub == None):
-            mysql.query("INSERT INTO users (id) VALUES (%s)", (self.from_user,))
-            self.user_sub = mysql.query("SELECT * FROM users WHERE id = %s", (self.from_user,))
-        cmd = self.text[0].lower()
-        del(self.text[0])
-        if(cmds.get(cmd) == None):
-            if(self.is_chat == False):
-                Tg.sendMessage(self.from_chat, "👎🏻 Не понял", reply_to_message_id=self.msg_id)
-            return None
+class MsgInfo(): pass
+
+def execute_command(data):
+    print(data)
+    msg_info = MsgInfo()
+    if('my_chat_member' in data):
+        return None
+    elif('message' in data):
+        data = data['message']
+        if('text' not in data): # исключение/добавление участника приходит с элементом message
+            return None         # но без text в нём. Игнорируем такие события
+        MsgInfo.from_user = data['from']['id']
+        MsgInfo.from_chat = data['chat']['id']
+        MsgInfo.is_chat = MsgInfo.from_chat < 0
+        MsgInfo.text = data['text'].split()
+        MsgInfo.msg_id = data['message_id']
+        MsgInfo.user_info, MsgInfo.chat_info = getUserInfo(MsgInfo.from_user, MsgInfo.from_chat)
+    elif('callback_query' in data): # возможно объединить?
+        MsgInfo.from_user = data['callback_query']['message']['from']['id']
+        MsgInfo.from_chat = data['callback_query']['message']['chat']['id']
+        MsgInfo.is_chat = MsgInfo.from_chat < 0
+        MsgInfo.text = None
+        MsgInfo.msg_id = data['callback_query']['message']['message_id']
+        MsgInfo.callback_data = data['callback_query']['data'].split("/")
+        MsgInfo.callback_data[1] = MsgInfo.callback_data[1].split(",")
+        MsgInfo.user_info, MsgInfo.chat_info = getUserInfo(MsgInfo.from_user, MsgInfo.from_chat)
         try:
-            cmds[cmd](self)
+            return inlines[MsgInfo.callback_data[0]](MsgInfo)
         except Exception as e:
-            Tg.sendMessage(self.from_chat, "⚠ Произошла непредвиденная ошибка.\nОбратитесь к @l270011", reply_to_message_id=self.msg_id)
-            print(e)
+            sendErrorMessage(MsgInfo.from_chat, e)
+            return None
+    # elif('inline_query' in data):
+    #     MsgInfo.from_user = data['inline_query']['from']['id']
+    #     MsgInfo.from_chat = None
+    #     MsgInfo.is_chat = None
+    #     MsgInfo.user_info, MsgInfo.chat_info = getUserInfo(MsgInfo.from_user, None)
+    #     return Tg.answerInlineQuery()
+    if(MsgInfo.is_chat == True):
+        MsgInfo.text[0] = MsgInfo.text[0].split("@")
+        if(len(MsgInfo.text[0]) > 1):
+            if(MsgInfo.text[0][1] != Tg.username): # Фильтруем команды по тегу бота
+                return None                     # Пример: /status@first_bot и /status@second_bot
+        MsgInfo.text[0] = MsgInfo.text[0][0] # убираем тег из команды
+    if(MsgInfo.user_info['state'] != None and MsgInfo.text[0][0] != "/"):
+        try:
+            return states[MsgInfo.user_info['state']](MsgInfo)
+        except Exception as e:
+            sendErrorMessage(MsgInfo.from_chat, e)
+            return None
+    cmd = MsgInfo.text[0].lower()
+    del(MsgInfo.text[0])
+    if(cmds.get(cmd) == None):
+        if(MsgInfo.is_chat == False):
+            Tg.sendMessage(MsgInfo.from_chat, "👎🏻 Не понял", reply_to_message_id=MsgInfo.msg_id)
+        return None
+    try:
+        cmds[cmd](MsgInfo)
+    except Exception as e:
+        sendErrorMessage(MsgInfo.from_chat, e)
+        return None
 
-    def start(self):
-        Tg.sendMessage(self.from_chat, "Привет! Для начала давай найдём твою группу:",
-            reply_markup=Tg.generateInlineKeyb(Tg.makeButton("test", "T1"), Tg.makeButton("test2", "T2")), reply_to_message_id=self.msg_id)
+### Обычные команды
+def start(MsgInfo):
+    Tg.sendMessage(MsgInfo.from_chat, "Привет! Для начала давай найдём твою группу:",
+        reply_markup=Tg.generateInlineKeyb(Tg.makeButton("Поиск по аббревиатуре", "pre_find_abbr"), Tg.makeButton("test2", "T2")))
 
-    def test(self):
-        Tg.sendMessage(self.from_chat, "TG bot by @l270011", reply_to_message_id=self.msg_id)
+def test(MsgInfo):
+    Tg.sendMessage(MsgInfo.from_chat, "sstu_rasp bot by @l270011")
 
-    def info(self):
-        if(self.is_chat):
-            if(self.chat_sub['subscribe'] == 1):
-                rassb = f"Chat-ID: {self.from_chat}\nПодписка чата: *Активна*\n"
-            else:
-                rassb = f"Chat-ID: {self.from_chat}\nПодписка чата: *Неактивна*\n"
-        else: rassb = ""
-        if(self.user_sub['subscribe'] == 1):
-            rass = "Активна"
+def info(MsgInfo):
+    txt = f"ℹ️ Информация\nID: {MsgInfo.from_user}\nЧат: {MsgInfo.is_chat}/{MsgInfo.from_chat}\nГруппа: {MsgInfo.user_info['group_id']}"
+    Tg.sendMessage(MsgInfo.from_chat, txt)
+
+def subscribe(MsgInfo):
+    if(MsgInfo.is_chat):
+        if(MsgInfo.chat_info['subscribe'] == 1):
+            mysql.query("UPDATE tg_infoscribe SET subscribe=0 WHERE id = %s", (MsgInfo.from_chat,))
+            txt = "✅ Вы успешно *отписали беседу* от уведомлений о трансляциях"
         else:
-            rass = "Неактивна"
-        txt = f"ℹ️ Информация\nID: {self.from_user}\nПодписка: *{rass}*\n{rassb}"
-        Tg.sendMessage(self.from_chat, txt, reply_to_message_id=self.msg_id)
-
-    def subscribe(self):
-        if(self.is_chat):
-            if(self.chat_sub['subscribe'] == 1):
-                mysql.query("UPDATE tg_subscribe SET subscribe=0 WHERE id = %s", (self.from_chat,))
-                txt = "✅ Вы успешно *отписали беседу* от уведомлений о трансляциях"
-            else:
-                mysql.query("UPDATE tg_subscribe SET subscribe=1 WHERE id = %s", (self.from_chat,))
-                txt = "✅ Вы успешно *подписали беседу* на уведомления о трансляциях"
+            mysql.query("UPDATE tg_infoscribe SET subscribe=1 WHERE id = %s", (MsgInfo.from_chat,))
+            txt = "✅ Вы успешно *подписали беседу* на уведомления о трансляциях"
+    else:
+        if(MsgInfo.user_info['subscribe'] == 1):
+            mysql.query("UPDATE tg_infoscribe SET subscribe=0 WHERE id = %s", (MsgInfo.from_user,))
+            txt = "✅ Вы успешно *отписались* от уведомлений о трансляциях"
         else:
-            if(self.user_sub['subscribe'] == 1):
-                mysql.query("UPDATE tg_subscribe SET subscribe=0 WHERE id = %s", (self.from_user,))
-                txt = "✅ Вы успешно *отписались* от уведомлений о трансляциях"
-            else:
-                mysql.query("UPDATE tg_subscribe SET subscribe=1 WHERE id = %s", (self.from_user,))
-                txt = "✅ Вы успешно *подписались* на уведомления о трансляциях"
-        Tg.sendMessage(self.from_chat, txt, reply_to_message_id=self.msg_id)
+            mysql.query("UPDATE tg_infoscribe SET subscribe=1 WHERE id = %s", (MsgInfo.from_user,))
+            txt = "✅ Вы успешно *подписались* на уведомления о трансляциях"
+    Tg.sendMessage(MsgInfo.from_chat, txt)
 
-cmds = {'/start':Commands.start,
-        '/test':Commands.test,
-        '/info':Commands.info,
-        '/subscribe':Commands.subscribe,'/unsubscribe':Commands.subscribe
-        }
+### Действия inline клавиатур/сообщений с состоянием
+def pre_find_abbr(MsgInfo):
+    setUserState(MsgInfo.from_chat, "sa")
+    Tg.editMessageText(MsgInfo.from_chat, MsgInfo.msg_id, "Отправьте аббревиатуру вашего направления (Прим: ИФСТ, СЗС, АРХТ)")
+
+def select_abbr_name(MsgInfo):
+    types = mysql.query("SELECT DISTINCT `type` FROM `groups` WHERE `group-start` = %s", (MsgInfo.text, ), fetch="all")
+    if(len(types) == 0):
+        Tg.sendMessage(MsgInfo.from_chat, "⚠ Групп с такой аббревиатурой не найдено. Попробуйте ещё раз.")
+    else:
+        buttons = [Tg.makeButton(i['type'], "sa_c/"+i['type']) for i in types]
+        Tg.sendMessage(MsgInfo.from_chat, "Выберите тип обучения:", reply_markup=Tg.generateInlineKeyb(buttons))
+
+def select_course(MsgInfo):
+    pass
+
+### Список команд
+cmds = {'/start':start,
+        '/test':test,
+        '/info':info,
+        '/subscribe':subscribe,'/unsubscribe':subscribe
+}
+
+### Список inline действий
+inlines = {
+        'pre_find_abbr':pre_find_abbr,
+        'sa_c':select_course
+}
+
+### Список состояний
+states = {
+        'sa':select_abbr_name
+}
+
+# sa = select_abbr

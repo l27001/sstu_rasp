@@ -69,18 +69,42 @@ class Tg:
         self.id = data['id']
         self.username = data['username']
 
-    def makeButton(self, text, callback_data, **kwargs):
+    def makeButton(self, text, callback_data="", **kwargs):
         res = {"text": text, "callback_data": callback_data}
         res.update(kwargs)
         return res
 
     def generateInlineKeyb(self, *args):
+        if(type(args[0]) != list):
+            args = list(args)
+        else:
+            args = args[0]
         return json.dumps({"inline_keyboard": [
-                list(args)
+                args
             ]
         })
 
-    def editMessageText(self, chat, message, text, keyb=None):
+    def editMessageText(self, chat, message, text, keyb=""):
         params = {"chat_id": chat, "message_id": message, "text": text, "reply_markup": keyb}
         data = requests.get(f"{self.url}editMessageText", params=params)
         return data.json()
+
+def getUserInfo(user, chat):
+    if(chat is not None):
+        chat_info = mysql.query("SELECT * FROM users WHERE id = %s", (chat,))
+        if(chat_info == None):
+            mysql.query("INSERT INTO users (id) VALUES (%s)", (chat,))
+            chat_info = mysql.query("SELECT * FROM users WHERE id = %s", (chat,))
+    else: chat_info = None
+    user_info = mysql.query("SELECT * FROM users WHERE id = %s", (user,))
+    if(user_info == None):
+        mysql.query("INSERT INTO users (id) VALUES (%s)", (user,))
+        user_info = mysql.query("SELECT * FROM users WHERE id = %s", (user,))
+    return user_info, chat_info
+
+def setUserState(id_, state=None):
+    mysql.query("UPDATE `users` SET state = %s WHERE id = %s", (state, id_))
+
+def sendErrorMessage(to, exception):
+    Tg().sendMessage(to, "⚠ Произошла непредвиденная ошибка.\nОбратитесь к @l270011")
+    print(exception)
