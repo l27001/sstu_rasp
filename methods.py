@@ -74,20 +74,35 @@ class Tg:
         res.update(kwargs)
         return res
 
-    def generateInlineKeyb(self, *args):
-        if(type(args[0]) != list):
-            args = list(args)
-        else:
+    def makeRows(self, *args, max_=5):
+        if(len(args) > 0 and type(args[0]) == list):
             args = args[0]
-        return json.dumps({"inline_keyboard": [
-                args
-            ]
-        })
+        if(len(args) > max_):
+            return [args[x:x+max_] for x in range(0, len(args), max_)]
+        return [list(args)]
 
-    def editMessageText(self, chat, message, text, keyb=""):
-        params = {"chat_id": chat, "message_id": message, "text": text, "reply_markup": keyb}
+    def generateInlineKeyb(self, *args, home=True, empty=False):
+        if(empty == True):
+            return json.dumps({"inline_keyboard": []})
+        s = []
+        for n in args:
+            s += n
+        if(home == True):
+            s.append([{"text": "🏠 Меню", "callback_data": "clear_state"}])
+        return json.dumps({"inline_keyboard": s})
+
+    def editMessageText(self, chat, message, text, parse_mode="Markdown", **kwargs):
+        params = {"chat_id": chat, "message_id": message, "text": text, "parse_mode": parse_mode}
+        params.update(kwargs)
         data = requests.get(f"{self.url}editMessageText", params=params)
         return data.json()
+
+    def editOrSend(self, MsgInfo, text, **kwargs):
+        if(MsgInfo.callback_data is not None):
+            res = self.editMessageText(MsgInfo.from_chat, MsgInfo.msg_id, text, **kwargs)
+        if(MsgInfo.callback_data is None or res['ok'] == False):
+            res = self.sendMessage(MsgInfo.from_chat, text, **kwargs)
+        return res
 
 def getUserInfo(user, chat):
     if(chat is not None):
