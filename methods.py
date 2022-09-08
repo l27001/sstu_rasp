@@ -74,12 +74,14 @@ class Tg:
         res.update(kwargs)
         return res
 
-    def makeRows(self, *args, max_=5):
+    def makeRows(self, *args, max_=5, add_list=True):
         if(len(args) > 0 and type(args[0]) == list):
             args = args[0]
         if(len(args) > max_):
             return [args[x:x+max_] for x in range(0, len(args), max_)]
-        return [list(args)]
+        if(add_list == True):
+            return [list(args)]
+        return list(args)
 
     def generateInlineKeyb(self, *args, home=True, empty=False):
         if(empty == True):
@@ -117,9 +119,15 @@ def getUserInfo(user, chat):
         user_info = mysql.query("SELECT * FROM users WHERE id = %s", (user,))
     return user_info, chat_info
 
+def getUserGroups(user_id):
+    return mysql.query("SELECT g.id, gs.subscribe, g.name FROM group_subs gs INNER JOIN groups g ON gs.group_id = g.id WHERE user_id = %s",
+        (user_id, ), fetch="all")
+
 def setUserState(id_, state=None):
     mysql.query("UPDATE `users` SET state = %s WHERE id = %s", (state, id_))
 
 def sendErrorMessage(to, exception):
-    Tg().sendMessage(to, "⚠ Произошла непредвиденная ошибка.\nОбратитесь к @l270011")
-    print(exception)
+    t = Tg()
+    keyb = t.generateInlineKeyb(t.makeRows(t.makeButton("😡 Поругаться на разраба", url="tg://user?id=731264169")))
+    t.sendMessage(to, "⚠ Произошла непредвиденная ошибка.\nОбратитесь к @l270011", reply_markup=keyb)
+    logger.error(exception)

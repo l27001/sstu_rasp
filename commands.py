@@ -1,4 +1,5 @@
-from methods import getUserInfo, setUserState, sendErrorMessage
+from methods import getUserInfo, getUserGroups, setUserState, sendErrorMessage
+from datetime import date, timedelta, datetime
 
 class MsgInfo(): pass
 
@@ -64,12 +65,13 @@ def execute_command(data):
 def menu(MsgInfo):
     setUserState(MsgInfo.from_chat, None)
     menu_text = """👋 Привет, я бот отслеживающий расписание СГТУ!
-<s>Идеи Щавеля не будут забыты\\!</s> Бота написал <a href="tg://user?id=731264169">вот он</a>, соотвественно за вопросами/с багами/предложениями к нему.
+<s>Идеи Щавеля не будут забыты!</s> Бота написал <a href="tg://user?id=731264169">вот он</a>, соотвественно за вопросами/с багами/предложениями к нему.
 \nДля просмотра расписания своей группы сначала необходимо привязать группу к аккаунту ТГ. Сделать это можно с помощью кнопок ниже.
 \nПроект является <b><u>BETA</u></b> версией, стабильность не гарантируется!"""
     menu_keyb = Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🔍 Найти группу", "start_find"),
         Tg.makeButton("❓ Ничего не понимаю", "about"),
-        Tg.makeButton("📝 Мои группы", "mg"), max_=2))
+        Tg.makeButton("📝 Мои группы", "mg"),
+        Tg.makeButton("🗒️ Расписание", "rasp"), max_=2), home=False)
     Tg.editOrSend(MsgInfo, menu_text, reply_markup=menu_keyb, parse_mode="HTML")
 
 def about(MsgInfo):
@@ -91,13 +93,19 @@ def info(MsgInfo):
 
 def pre_find_abbr(MsgInfo):
     setUserState(MsgInfo.from_chat, "sa")
-    Tg.editMessageText(MsgInfo.from_chat, MsgInfo.msg_id, "ℹ️ Отправь аббревиатуру твоего направления (Прим: ИФСТ, СЗС, АРХТ)",
+    text = "ℹ️ Отправь аббревиатуру твоего направления (Прим: ИФСТ, СЗС, АРХТ)"
+    if(MsgInfo.is_chat == True):
+        text += "\n_P.S. В беседе необходимо ответить на сообщение чтобы бот его увидел!_"
+    Tg.editMessageText(MsgInfo.from_chat, MsgInfo.msg_id, text,
         reply_markup=Tg.generateInlineKeyb())
 
 def find_by_id(MsgInfo):
     setUserState(MsgInfo.from_chat, "fid")
     rows = Tg.makeRows(Tg.makeButton("❔ Где взять ID группы?", "where_id"))
-    Tg.editMessageText(MsgInfo.from_chat, MsgInfo.msg_id, "📧 Отправь ID группы",
+    text = "📧 Отправь ID группы"
+    if(MsgInfo.is_chat == True):
+        text += "\n_P.S. В беседе необходимо ответить на сообщение чтобы бот его увидел!_"
+    Tg.editMessageText(MsgInfo.from_chat, MsgInfo.msg_id, text,
         reply_markup=Tg.generateInlineKeyb(rows))
 
 def select_by_id(MsgInfo): # вынести выбор группы в отдельную функцию
@@ -170,8 +178,7 @@ def confirm_group(MsgInfo): # вынести выбор группы в отде
         reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("📝 Мои группы", "mg"))))
 
 def my_groups(MsgInfo):
-    groups = mysql.query("SELECT g.id, gs.subscribe, g.name FROM group_subs gs INNER JOIN groups g ON gs.group_id = g.id WHERE user_id = %s",
-        (MsgInfo.from_chat, ), fetch="all")
+    groups = getUserGroups(MsgInfo.from_chat)
     msg = []; buttons = []
     for g in groups:
         if(g['subscribe'] == False):
@@ -179,13 +186,16 @@ def my_groups(MsgInfo):
         else: sub = "_Подписан_"
         msg.append(f"ID - `{g['id']}` | {g['name']} | {sub}")
         buttons.append(Tg.makeButton(g['name'], f"chk_grp/{g['id']}"))
+    if(groups is None or groups == ()):
+        msg = ["*Нет групп*"]
+        buttons.append(Tg.makeButton("🔍 Найти группу", "start_find"))
     msg = "📝 Твои группы:\n"+"\n".join(msg)
     keyb = Tg.generateInlineKeyb(Tg.makeRows(buttons, max_=2))
     Tg.editOrSend(MsgInfo, msg, reply_markup=keyb)
 
 def check_group(MsgInfo):
     group = mysql.query("SELECT gg.*, gs.* FROM `groups` gg INNER JOIN `group_subs` gs ON gs.group_id = gg.id WHERE `id` = %s", (MsgInfo.callback_data[1][0], ))
-    if(group is None):
+    if(group is None or group == ()):
         return Tg.editOrSend(MsgInfo, "⚠ Не удалось получить информацию о группе. Вернитесь в меню", reply_markup=Tg.generateInlineKeyb())
     count = mysql.query("SELECT COUNT(*) FROM `group_subs` WHERE `group_id` = %s", (group['id'], ))
     if(group['subscribe'] == False):
@@ -205,7 +215,7 @@ def check_group(MsgInfo):
         Tg.makeButton(f"❗ {toggle}", f"toggle_sub/{group['id']}"),
         Tg.makeButton(f"⁉️ Что за рассылка?", "about"),
         Tg.makeButton("🔙 Вернуться к списку групп", "mg"),
-        Tg.makeButton("🗒️ Расписание", "rasp"), max_=2)
+        Tg.makeButton("🗒️ Расписание группы", f"get_rasp/{group['id']}"), max_=2)
     Tg.editMessageText(MsgInfo.from_chat, MsgInfo.msg_id, msg, reply_markup=Tg.generateInlineKeyb(rows))
 
 def del_group(MsgInfo):
@@ -219,12 +229,81 @@ def toggle_subscribtion(MsgInfo):
     keyb = Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🔙 Вернуться к группе", f"chk_grp/{MsgInfo.callback_data[1][0]}")))
     Tg.editOrSend(MsgInfo, "🟢 Параметры подписки изменены!", reply_markup=keyb)
 
+def rasp(MsgInfo):
+    groups = getUserGroups(MsgInfo.from_chat)
+    buttons = []
+    msg = "🔘 Выбери группу расписание которой ты хочешь увидеть:"
+    for g in groups:
+        buttons.append(Tg.makeButton(g['name'], f"get_rasp/{g['id']}"))
+    if(groups is None or groups == ()):
+        msg = "*Нет групп*"
+        buttons.append(Tg.makeButton("🔍 Найти группу", "start_find"))
+    Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(Tg.makeRows(buttons, max_=2)))
+
+def get_rasp(MsgInfo):
+    group = mysql.query("SELECT * FROM `groups` WHERE `id` = %s", (MsgInfo.callback_data[1][0], ))
+    if(group is None):
+        return Tg.editOrSend(MsgInfo, "⚠ Не удалось получить информацию о группе.",
+            reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("📝 Мои группы", "mg"), Tg.makeButton("🔙 Вернуться", "rasp"))))
+    days = [(date.today()+timedelta(days=i)).isoformat() for i in range(2)]
+    buttons = Tg.makeRows([Tg.makeButton(days[i], f"date_rasp/{group['id']},{days[i]}") for i in range(len(days))], max_=2)
+    buttons.append(Tg.makeRows(Tg.makeButton("🔙 Вернуться", "rasp"), add_list=False))
+    info = []; weather = []
+    for i in range(len(days)):
+        info.append(mysql.query("SELECT `date`, `weekday`, `time_start`, COUNT(*) FROM `lessons` WHERE `group_id` = %s AND `date` = %s ORDER BY `lesson_num`",
+            (group['id'], days[i])))
+        info[i].update(mysql.query("SELECT `time_end` FROM `lessons` WHERE `group_id` = %s AND `date` = %s ORDER BY `lesson_num` DESC",
+            (group['id'], days[i])))
+        info[i].update({"time_start": datetime.strptime(f"{info[i]['date']} {info[i]['time_start']}", "%Y-%m-%d %H:%M:%S"),
+        "time_end": datetime.strptime(f"{info[i]['date']} {info[i]['time_end']}", "%Y-%m-%d %H:%M:%S")})
+        weather.append(mysql.query("SELECT `temp`,`weather` FROM `weather` WHERE `date` BETWEEN %s AND %s",
+            (f"{days[i]} {info[i]['time_start'].strftime('%H:%M')}", f"{days[i]} {info[i]['time_end'].strftime('%H:%M')}")))
+        if(weather[i] is None):
+            weather[i] = {"temp": 0, "weather": "Нет данных"}
+    msg = f"""🗓️ Общая информация для *{group['name']}*
+- ID: `{group['id']}`
+"""
+    for i in range(len(days)):
+        msg += f"""---------------------
+- День: *{info[i]['weekday']} {days[i]}*
+- Кол-во пар: {info[i]['COUNT(*)']}
+- Первая пара: {info[i]['time_start'].strftime("%H:%M")}
+- Последняя пара: {info[i]['time_end'].strftime("%H:%M")}
+- Погода: {weather[i]['weather']} {weather[i]['temp']}°C
+"""
+    Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(buttons))
+
+def date_rasp(MsgInfo):
+    rasp = mysql.query("SELECT l.*, g.name AS gname FROM `lessons` l INNER JOIN `groups` g ON l.group_id = g.id WHERE `date` = %s AND `group_id` = %s ORDER BY `lesson_num`",
+        (MsgInfo.callback_data[1][1], MsgInfo.callback_data[1][0]), fetch="all")
+    if(rasp is None or rasp == ()):
+        return Tg.editOrSend(MsgInfo, "⚠ Не удалось получить информацию о группе.",
+            reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("📝 Мои группы", "mg"), Tg.makeButton("🔙 Вернуться", "rasp"))))
+    msg = []
+    now = datetime.now()
+    for i in range(len(rasp)):
+        flag = ""
+        rasp[i].update({"time_start": datetime.strptime(f"{rasp[i]['date']} {rasp[i]['time_start']}", "%Y-%m-%d %H:%M:%S"),
+        "time_end": datetime.strptime(f"{rasp[i]['date']} {rasp[i]['time_end']}", "%Y-%m-%d %H:%M:%S")})
+        if(rasp[i]['time_start'] < now < rasp[i]['time_end']):
+            flag = "*Текущая пара*\n"
+        elif(i > 0 and rasp[i-1]['time_end'] <= now <= rasp[i]['time_start']):
+            flag = "*Следующая пара*\n"
+        msg.append(f"""{flag}Предмет: {rasp[i]['name']}/{rasp[i]['type']}
+Время: {rasp[i]['time_start'].strftime("%H:%M")} - {rasp[i]['time_end'].strftime("%H:%M")}
+Аудитория: {rasp[i]['room']}
+Преподаватель: {rasp[i]['teacher']}""")
+    msg = f"🗓️ *{rasp[0]['gname']} {MsgInfo.callback_data[1][1]}*\n"+"\n---------------------\n".join(msg)
+    buttons = Tg.makeRows(Tg.makeButton("🗒️ Меню расписания", "rasp"), Tg.makeButton("🔙 Вернуться", f"get_rasp/{MsgInfo.callback_data[1][0]}"))
+    Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(buttons))
+
 ### Список команд
 cmds = {'/start':menu,
         '/menu':menu,
         '/info':info,
         '/find':start_find,
         '/groups':my_groups,
+        '/rasp':rasp,
 }
 
 ### Список inline действий
@@ -241,7 +320,10 @@ inlines = {
         'mg':my_groups,
         'chk_grp':check_group,
         'del_grp':del_group,
-        'toggle_sub':toggle_subscribtion
+        'toggle_sub':toggle_subscribtion,
+        'rasp':rasp,
+        'get_rasp':get_rasp,
+        'date_rasp':date_rasp
 }
 
 ### Список состояний
