@@ -6,7 +6,7 @@ from time import sleep
 import methods
 
 headers = {
-    'User-Agent': "ssturasp_bot/v0.1.0"
+    'User-Agent': "ssturasp_bot/v0.1.1"
 }
 
 def parse_groups():
@@ -31,8 +31,9 @@ def parse_groups():
                 group_id = int(a.get("href").split("/")[-1])
                 group_name = a.text.strip()
                 course = int(group_name[-2])
-                mysql.query("REPLACE INTO `groups` (`institute`, `form`, `type`, `group-start`, `name`, `id`, `course`) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                    (institute, edu_form, group_type, group_start, group_name, group_id, course))
+                mysql.query("INSERT INTO `groups` (`institute`, `form`, `type`, `group-start`, `name`, `id`, `course`) \
+                    VALUES (%s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE `institute`=%s, `form`=%s, `type`=%s, `group-start`=%s, `name`=%s, `course`=%s, `last-appearance`=%s",
+                    (institute, edu_form, group_type, group_start, group_name, group_id, course, institute, edu_form, group_type, group_start, group_name, course, datetime.now().isoformat()))
     del_date = (date.today() - timedelta(days=2)).isoformat()
     mysql.query("DELETE FROM `groups` WHERE `last-appearance` <= %s", (del_date, ))
 
@@ -116,7 +117,7 @@ if(__name__ == "__main__"):
     mysql = methods.Mysql()
     import sys
     try:
-        if(len(sys.argv) == 0):
+        if(len(sys.argv) == 1):
             parse_groups()
             groups = mysql.query("SELECT id FROM groups", fetch="all")
             for n in groups:
