@@ -7,7 +7,7 @@ class Mysql:
     def __init__(self):
         self.con = Mysql.make_con()
 
-    def query(self,query,variables=(),fetch="one"):
+    def query(self,query,variables=(),fetch="one",fetchall=False):
         try:
             cur = self.con.cursor()
             cur.execute(query, variables)
@@ -15,7 +15,7 @@ class Mysql:
             self.con = Mysql.make_con()
             cur = self.con.cursor()
             cur.execute(query, variables)
-        if(fetch == "one"):
+        if(fetch == "one" and fetchall == False):
             data = cur.fetchone()
         else:
             data = cur.fetchall()

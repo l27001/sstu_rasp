@@ -6,7 +6,7 @@ from time import sleep
 import methods
 
 headers = {
-    'User-Agent': "ssturasp_bot/v0.1.1"
+    'User-Agent': "Mozilla/5.0 (compatible; ssturasp_bot/v0.1.1; https://t.me/ssturasp_bot; l27001@ezdomain.ru)"
 }
 
 def parse_groups():
