@@ -28,11 +28,11 @@ def execute_command(data):
         if(len(MsgInfo.callback_data) > 1):
             MsgInfo.callback_data[1] = MsgInfo.callback_data[1].split(",")
         MsgInfo.user_info, _ = getUserInfo(MsgInfo.from_chat, None)
-        #try:
-        return inlines[MsgInfo.callback_data[0]](MsgInfo)
-        #except Exception as e:
-        #    sendErrorMessage(MsgInfo.from_chat, e)
-        #    return None
+        try:
+            return inlines[MsgInfo.callback_data[0]](MsgInfo)
+        except Exception as e:
+            sendErrorMessage(MsgInfo.from_chat, e)
+            return None
     if(MsgInfo.is_chat == True and "reply_to_message" not in data):
         MsgInfo.text[0] = MsgInfo.text[0].split("@")
         if(len(MsgInfo.text[0]) > 1):
