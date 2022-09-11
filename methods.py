@@ -7,7 +7,7 @@ class Mysql:
     def __init__(self):
         self.con = Mysql.make_con()
 
-    def query(self,query,variables=(),fetch="one",fetchall=False):
+    def query(self,query,variables=(),fetchall=False):
         try:
             cur = self.con.cursor()
             cur.execute(query, variables)
@@ -15,7 +15,7 @@ class Mysql:
             self.con = Mysql.make_con()
             cur = self.con.cursor()
             cur.execute(query, variables)
-        if(fetch == "one" and fetchall == False):
+        if(fetchall == False):
             data = cur.fetchone()
         else:
             data = cur.fetchall()
@@ -106,22 +106,29 @@ class Tg:
             res = self.sendMessage(MsgInfo.from_chat, text, **kwargs)
         return res
 
-def getUserInfo(user, chat):
-    if(chat is not None):
-        chat_info = mysql.query("SELECT * FROM users WHERE id = %s", (chat,))
-        if(chat_info == None):
-            mysql.query("INSERT INTO users (id) VALUES (%s)", (chat,))
-            chat_info = mysql.query("SELECT * FROM users WHERE id = %s", (chat,))
-    else: chat_info = None
+    def inlineQueryResult(self, type_, id_, **kwargs):
+        res = {"type": type_, "id": id_}
+        if("reply_markup" in kwargs):
+            kwargs.update({"reply_markup": json.loads(kwargs['reply_markup'])})
+        res.update(kwargs)
+        return res
+
+    def answerInlineQuery(self, id_, results, **kwargs):
+        params = {"inline_query_id": id_, "results": json.dumps(results)}
+        params.update(kwargs)
+        data = requests.get(f"{self.url}answerInlineQuery", params=params)
+        return data.json()
+
+def getUserInfo(user):
     user_info = mysql.query("SELECT * FROM users WHERE id = %s", (user,))
     if(user_info == None):
         mysql.query("INSERT INTO users (id) VALUES (%s)", (user,))
         user_info = mysql.query("SELECT * FROM users WHERE id = %s", (user,))
-    return user_info, chat_info
+    return user_info
 
 def getUserGroups(user_id):
     return mysql.query("SELECT g.id, gs.subscribe, g.name FROM group_subs gs INNER JOIN groups g ON gs.group_id = g.id WHERE user_id = %s",
-        (user_id, ), fetch="all")
+        (user_id, ), fetchall=True)
 
 def setUserState(id_, state=None):
     mysql.query("UPDATE `users` SET state = %s WHERE id = %s", (state, id_))
@@ -129,5 +136,7 @@ def setUserState(id_, state=None):
 def sendErrorMessage(to, exception):
     t = Tg()
     keyb = t.generateInlineKeyb(t.makeRows(t.makeButton("😡 Поругаться на разраба", url="tg://user?id=731264169")))
-    t.sendMessage(to, "⚠ Произошла непредвиденная ошибка.\nОбратитесь к @l270011", reply_markup=keyb)
+    try:
+        t.sendMessage(to, "⚠ Произошла непредвиденная ошибка.\nОбратитесь к @l270011", reply_markup=keyb)
+    except: pass
     logger.error(exception)

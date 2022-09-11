@@ -54,7 +54,7 @@ def parse_rasp(group):
                 lesson_hours = div.find("div", class_="lesson-hour").text.strip().replace("\u2014", "").split(" - ")
                 lesson_name = div.find("div", class_="lesson-name").text.strip()
                 lesson_type = div.find("div", class_="lesson-type").text.strip()
-                lesson_room = [i.text.strip() for i in div.findAll("div", class_="lesson-room")]
+                lesson_room = [i.text.strip().replace("_", "") for i in div.findAll("div", class_="lesson-room")]
                 lesson_teacher = [i.text.strip() for i in div.findAll("div", class_="lesson-teacher")]
                 try: lesson_room.remove("")
                 except ValueError: pass
@@ -84,13 +84,13 @@ def parse_weather():
 
 def notify_tomorrow():
     Tg = methods.Tg()
-    groups = mysql.query("SELECT * FROM `groups`", fetch="all")
+    groups = mysql.query("SELECT * FROM `groups`", fetchall=True)
     tomorrow = date.today() + timedelta(days=1)
     for group in groups:
-        subscribers = mysql.query("SELECT * FROM `group_subs` WHERE `group_id` = %s", (group['id'], ), fetch="all")
+        subscribers = mysql.query("SELECT * FROM `group_subs` WHERE `group_id` = %s", (group['id'], ), fetchall=True)
         if(subscribers is None or subscribers == ()):
             continue
-        lessons = mysql.query("SELECT * FROM `lessons` WHERE `date` = %s AND `group_id` = %s", (tomorrow.isoformat(), group['id']), fetch="all")
+        lessons = mysql.query("SELECT * FROM `lessons` WHERE `date` = %s AND `group_id` = %s", (tomorrow.isoformat(), group['id']), fetchall=True)
         if(lessons is None or lessons == ()):
             continue
         for l in range(len(lessons)):
@@ -119,7 +119,7 @@ if(__name__ == "__main__"):
     try:
         if(len(sys.argv) == 1):
             parse_groups()
-            groups = mysql.query("SELECT id FROM groups", fetch="all")
+            groups = mysql.query("SELECT id FROM groups", fetchall=True)
             for n in groups:
                 try: parse_rasp(n["id"]); sleep(.5)
                 except KeyboardInterrupt: exit()

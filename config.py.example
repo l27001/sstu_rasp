@@ -1,3 +1,4 @@
+# Переименовать в "config.py"
 db = {"host": "localhost",
         "user": "username",
         "password": "very_hard_pass",

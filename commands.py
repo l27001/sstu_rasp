@@ -16,50 +16,71 @@ def execute_command(data):
         MsgInfo.is_chat = MsgInfo.from_chat < 0
         MsgInfo.text = data['text'].split()
         MsgInfo.msg_id = data['message_id']
-        MsgInfo.user_info, MsgInfo.chat_info = getUserInfo(MsgInfo.from_user, MsgInfo.from_chat)
+        MsgInfo.user_info = getUserInfo(MsgInfo.from_user)
         MsgInfo.callback_data = None
+        if(MsgInfo.is_chat == True and "reply_to_message" not in data):
+            MsgInfo.text[0] = MsgInfo.text[0].split("@")
+            if(len(MsgInfo.text[0]) > 1):
+                if(MsgInfo.text[0][1] != Tg.username): # Фильтруем команды по тегу бота
+                    return None                     # Пример: /status@first_bot и /status@second_bot
+            MsgInfo.text[0] = MsgInfo.text[0][0] # убираем тег из команды
+        if((MsgInfo.user_info['state'] != None or MsgInfo.is_chat == True) and MsgInfo.text[0][0] != "/"):
+            try:
+                return states[MsgInfo.user_info['state']](MsgInfo)
+            except KeyError:
+                return Tg.sendMessage(MsgInfo.from_chat, "⚠ Ожидается другое действие", reply_markup=Tg.generateInlineKeyb())
+            except Exception as e:
+                sendErrorMessage(MsgInfo.from_chat, e)
+                return None
+        cmd = MsgInfo.text[0].lower()
+        del(MsgInfo.text[0])
+        if(cmds.get(cmd) == None):
+            if(MsgInfo.is_chat == False):
+                Tg.sendMessage(MsgInfo.from_chat, "👎🏻 Не понял", reply_markup=Tg.generateInlineKeyb(), reply_to_message_id=MsgInfo.msg_id)
+            return None
+        try:
+            cmds[cmd](MsgInfo)
+        except Exception as e:
+            sendErrorMessage(MsgInfo.from_chat, e)
+            return None
     elif('callback_query' in data): # возможно объединить?
-        MsgInfo.from_user = data['callback_query']['message']['from']['id']
-        MsgInfo.from_chat = data['callback_query']['message']['chat']['id']
+        if('message' in data['callback_query']):
+            MsgInfo.from_user = data['callback_query']['message']['from']['id']
+            MsgInfo.from_chat = data['callback_query']['message']['chat']['id']
+            MsgInfo.text = data['callback_query']['message']['text']
+            MsgInfo.msg_id = data['callback_query']['message']['message_id']
+        else:
+            MsgInfo.from_user = data['callback_query']['from']['id']
+            MsgInfo.from_chat = MsgInfo.from_user
+            MsgInfo.msg_id = 0
+            MsgInfo.text = None
         MsgInfo.is_chat = MsgInfo.from_chat < 0
-        MsgInfo.text = data['callback_query']['message']['text']
-        MsgInfo.msg_id = data['callback_query']['message']['message_id']
         MsgInfo.callback_data = data['callback_query']['data'].split("/")
         if(len(MsgInfo.callback_data) > 1):
             MsgInfo.callback_data[1] = MsgInfo.callback_data[1].split(",")
-        MsgInfo.user_info, _ = getUserInfo(MsgInfo.from_chat, None)
+        MsgInfo.user_info = getUserInfo(MsgInfo.from_chat)
         try:
             return inlines[MsgInfo.callback_data[0]](MsgInfo)
         except Exception as e:
             sendErrorMessage(MsgInfo.from_chat, e)
             return None
-    if(MsgInfo.is_chat == True and "reply_to_message" not in data):
-        MsgInfo.text[0] = MsgInfo.text[0].split("@")
-        if(len(MsgInfo.text[0]) > 1):
-            if(MsgInfo.text[0][1] != Tg.username): # Фильтруем команды по тегу бота
-                return None                     # Пример: /status@first_bot и /status@second_bot
-        MsgInfo.text[0] = MsgInfo.text[0][0] # убираем тег из команды
-    if((MsgInfo.user_info['state'] != None or (MsgInfo.is_chat == True and MsgInfo.chat_info['state'] != None)) and MsgInfo.text[0][0] != "/"):
-        try:
-            if(MsgInfo.is_chat == False):
-                return states[MsgInfo.user_info['state']](MsgInfo)
-            return states[MsgInfo.chat_info['state']](MsgInfo)
-        except KeyError:
-            return Tg.sendMessage(MsgInfo.from_chat, "⚠ Ожидается другое действие", reply_markup=Tg.generateInlineKeyb())
-        except Exception as e:
-            sendErrorMessage(MsgInfo.from_chat, e)
-            return None
-    cmd = MsgInfo.text[0].lower()
-    del(MsgInfo.text[0])
-    if(cmds.get(cmd) == None):
-        if(MsgInfo.is_chat == False):
-            Tg.sendMessage(MsgInfo.from_chat, "👎🏻 Не понял", reply_markup=Tg.generateInlineKeyb(), reply_to_message_id=MsgInfo.msg_id)
-        return None
-    try:
-        cmds[cmd](MsgInfo)
-    except Exception as e:
-        sendErrorMessage(MsgInfo.from_chat, e)
-        return None
+    elif('inline_query' in data):
+        MsgInfo.from_user = data['inline_query']['from']['id']
+        MsgInfo.is_chat = True
+        MsgInfo.query = data['inline_query']['query']
+        MsgInfo.query_id = data['inline_query']['id']
+        res = mysql.query("SELECT `id`, `name` FROM `groups` WHERE `name` LIKE %s LIMIT 10",
+            ("%"+MsgInfo.query.replace(" ", "%")+"%", ), fetchall=True)
+        answers = []
+        if(res is None or res == ()):
+            answers = []
+        else:
+            for i in res:
+                MsgInfo.callback_data = [None, [i['id']]]
+                msg, keyb = get_rasp(MsgInfo)
+                answers.append(Tg.inlineQueryResult("article", i['id'], title=i['name'],
+                    input_message_content={"message_text": msg, "parse_mode": "Markdown"}, reply_markup=keyb))
+        Tg.answerInlineQuery(MsgInfo.query_id, answers)
 
 ###
 def menu(MsgInfo):
@@ -139,7 +160,7 @@ def where_id(MsgInfo):
 URL: `https://rasp.sstu.ru/rasp/group/130` где `130` номер группы.", reply_markup=Tg.generateInlineKeyb(rows))
 
 def select_abbr_name(MsgInfo):
-    types = mysql.query("SELECT DISTINCT `type` FROM `groups` WHERE `group-start` = %s", (MsgInfo.text[0], ), fetch="all")
+    types = mysql.query("SELECT DISTINCT `type` FROM `groups` WHERE `group-start` = %s", (MsgInfo.text[0], ), fetchall=True)
     if(len(types) == 0):
         Tg.editOrSend(MsgInfo, "⚠ Групп с такой аббревиатурой не найдено. Попробуй ещё раз.")
     else:
@@ -149,14 +170,14 @@ def select_abbr_name(MsgInfo):
 def select_course(MsgInfo):
     setUserState(MsgInfo.from_chat, f"{MsgInfo.callback_data[0]}/{','.join(MsgInfo.callback_data[1])}")
     courses = mysql.query("SELECT DISTINCT `course` FROM `groups` WHERE `group-start` = %s AND `type` = %s ORDER BY `course`",
-        (MsgInfo.callback_data[1][0], MsgInfo.callback_data[1][1]), fetch="all")
+        (MsgInfo.callback_data[1][0], MsgInfo.callback_data[1][1]), fetchall=True)
     rows = Tg.makeRows([Tg.makeButton(i['course'], f"sa_c1/{','.join(MsgInfo.callback_data[1])},{i['course']}") for i in courses])
     Tg.editOrSend(MsgInfo, "ℹ️ Выбери курс:", reply_markup=Tg.generateInlineKeyb(rows))
 
 def select_group(MsgInfo):
     setUserState(MsgInfo.from_chat, f"{MsgInfo.callback_data[0]}/{','.join(MsgInfo.callback_data[1])}")
     groups = mysql.query("SELECT `id`,`name` FROM `groups` WHERE `group-start` = %s AND `type` = %s AND `course` = %s ORDER BY `name`",
-        (MsgInfo.callback_data[1][0], MsgInfo.callback_data[1][1], MsgInfo.callback_data[1][2]), fetch="all")
+        (MsgInfo.callback_data[1][0], MsgInfo.callback_data[1][1], MsgInfo.callback_data[1][2]), fetchall=True)
     rows = Tg.makeRows([Tg.makeButton(i['name'], f"cg/{i['id']}") for i in groups], max_=2)
     Tg.editOrSend(MsgInfo, "Наконец, выбери свою группу:",
         reply_markup=Tg.generateInlineKeyb(rows, Tg.makeRows(Tg.makeButton("🔙 Искать заного", "pre_find_abbr"))))
@@ -240,14 +261,18 @@ def rasp(MsgInfo):
         buttons.append(Tg.makeButton("🔍 Найти группу", "start_find"))
     Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(Tg.makeRows(buttons, max_=2)))
 
-def get_rasp(MsgInfo):
+def get_rasp(MsgInfo): # мне не нравится, переделать
     group = mysql.query("SELECT * FROM `groups` WHERE `id` = %s", (MsgInfo.callback_data[1][0], ))
     if(group is None):
+        if(MsgInfo.callback_data[0] == None):
+            return "⚠ Не удалось получить информацию о группе.", Tg.generateInlineKeyb(empty=True)
         return Tg.editOrSend(MsgInfo, "⚠ Не удалось получить информацию о группе.",
             reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("📝 Мои группы", "mg"), Tg.makeButton("🔙 Вернуться", "rasp"))))
     days = []; i = 0; buttons = []
     while len(days) < 2:
-        if(i >= 10):
+        if(i >= 5):
+            if(MsgInfo.callback_data[0] == None):
+                return "⚠ Похоже, расписания на ближайшие дни нет", Tg.generateInlineKeyb(empty=True)
             return Tg.editOrSend(MsgInfo, "⚠ Похоже, расписания на ближайшие дни нет",
                 reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🗒️ Меню расписания", "rasp"))))
         day = mysql.query("SELECT `date`, `weekday`, `time_start`, `time_end` FROM lessons WHERE `group_id` = %s AND `date` = %s ORDER BY `lesson_num`",
@@ -278,11 +303,13 @@ def get_rasp(MsgInfo):
 - Последняя пара: {day['info']['time_end'].strftime("%H:%M")}
 - Погода: {day['weather']['weather']} {day['weather']['temp']}°C
 """
+    if(MsgInfo.callback_data[0] == None):
+        return msg, Tg.generateInlineKeyb(buttons)
     Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(buttons))
 
 def date_rasp(MsgInfo):
     rasp = mysql.query("SELECT l.*, g.name AS gname FROM `lessons` l INNER JOIN `groups` g ON l.group_id = g.id WHERE `date` = %s AND `group_id` = %s ORDER BY `lesson_num`",
-        (MsgInfo.callback_data[1][1], MsgInfo.callback_data[1][0]), fetch="all")
+        (MsgInfo.callback_data[1][1], MsgInfo.callback_data[1][0]), fetchall=True)
     if(rasp is None or rasp == ()):
         return Tg.editOrSend(MsgInfo, "⚠ Не удалось получить информацию о группе.",
             reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("📝 Мои группы", "mg"), Tg.makeButton("🔙 Вернуться", "rasp"))))
@@ -300,7 +327,7 @@ def date_rasp(MsgInfo):
 Время: {rasp[i]['time_start'].strftime("%H:%M")} - {rasp[i]['time_end'].strftime("%H:%M")}
 Аудитория: {rasp[i]['room']}
 Преподаватель: {rasp[i]['teacher']}""")
-    msg = f"🗓️ *{rasp[0]['gname']} {MsgInfo.callback_data[1][1]}*\n"+"\n---------------------\n".join(msg)
+    msg = f"🗓️ *{rasp[0]['gname']} {MsgInfo.callback_data[1][1]} {rasp[0]['weekday']}*\n"+"\n---------------------\n".join(msg)
     buttons = Tg.makeRows(Tg.makeButton("🗒️ Меню расписания", "rasp"), Tg.makeButton("🔙 Вернуться", f"get_rasp/{MsgInfo.callback_data[1][0]}"))
     Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(buttons))
 
