@@ -34,10 +34,10 @@ CREATE TABLE `groups` (
   `name` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
   `form` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
   `type` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `group-start` varchar(8) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `group_start` varchar(8) COLLATE utf8mb4_unicode_ci NOT NULL,
   `course` int(11) NOT NULL,
   `institute` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `last-appearance` timestamp NOT NULL DEFAULT current_timestamp(),
+  `last_appearance` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`,`name`) USING BTREE,
   UNIQUE KEY `name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -160,7 +160,7 @@ def where_id(MsgInfo):
 URL: `https://rasp.sstu.ru/rasp/group/130` где `130` номер группы.", reply_markup=Tg.generateInlineKeyb(rows))
 
 def select_abbr_name(MsgInfo):
-    types = mysql.query("SELECT DISTINCT `type` FROM `groups` WHERE `group-start` = %s", (MsgInfo.text[0], ), fetchall=True)
+    types = mysql.query("SELECT DISTINCT `type` FROM `groups` WHERE `group_start` = %s", (MsgInfo.text[0], ), fetchall=True)
     if(len(types) == 0):
         Tg.editOrSend(MsgInfo, "⚠ Групп с такой аббревиатурой не найдено. Попробуй ещё раз.")
     else:
@@ -169,14 +169,14 @@ def select_abbr_name(MsgInfo):
 
 def select_course(MsgInfo):
     setUserState(MsgInfo.from_chat, f"{MsgInfo.callback_data[0]}/{','.join(MsgInfo.callback_data[1])}")
-    courses = mysql.query("SELECT DISTINCT `course` FROM `groups` WHERE `group-start` = %s AND `type` = %s ORDER BY `course`",
+    courses = mysql.query("SELECT DISTINCT `course` FROM `groups` WHERE `group_start` = %s AND `type` = %s ORDER BY `course`",
         (MsgInfo.callback_data[1][0], MsgInfo.callback_data[1][1]), fetchall=True)
     rows = Tg.makeRows([Tg.makeButton(i['course'], f"sa_c1/{','.join(MsgInfo.callback_data[1])},{i['course']}") for i in courses])
     Tg.editOrSend(MsgInfo, "ℹ️ Выбери курс:", reply_markup=Tg.generateInlineKeyb(rows))
 
 def select_group(MsgInfo):
     setUserState(MsgInfo.from_chat, f"{MsgInfo.callback_data[0]}/{','.join(MsgInfo.callback_data[1])}")
-    groups = mysql.query("SELECT `id`,`name` FROM `groups` WHERE `group-start` = %s AND `type` = %s AND `course` = %s ORDER BY `name`",
+    groups = mysql.query("SELECT `id`,`name` FROM `groups` WHERE `group_start` = %s AND `type` = %s AND `course` = %s ORDER BY `name`",
         (MsgInfo.callback_data[1][0], MsgInfo.callback_data[1][1], MsgInfo.callback_data[1][2]), fetchall=True)
     rows = Tg.makeRows([Tg.makeButton(i['name'], f"cg/{i['id']}") for i in groups], max_=2)
     Tg.editOrSend(MsgInfo, "Наконец, выбери свою группу:",
@@ -195,7 +195,7 @@ def confirm_group(MsgInfo): # вынести выбор группы в отде
     mysql.query("INSERT INTO `group_subs` (`user_id`, `group_id`) VALUES (%s, %s)", (MsgInfo.from_chat, MsgInfo.callback_data[1][0]))
     Tg.editOrSend(MsgInfo, "🟢 Группа была отмечена как твоя!",
         reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("📝 Мои группы", "mg"),
-            Tg.makeButton(f"❗ Подписаться на рассылку", f"toggle_sub/{group['id']}"),
+            Tg.makeButton(f"❗ Подписаться на рассылку", f"toggle_sub/{MsgInfo.callback_data[1][0]}"),
             Tg.makeButton(f"⁉️ Что за рассылка?", "about"), max_=1)))
 
 def my_groups(MsgInfo):
@@ -268,18 +268,19 @@ def get_rasp(MsgInfo): # мне не нравится, переделать
             return "⚠ Не удалось получить информацию о группе.", Tg.generateInlineKeyb(empty=True)
         return Tg.editOrSend(MsgInfo, "⚠ Не удалось получить информацию о группе.",
             reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("📝 Мои группы", "mg"), Tg.makeButton("🔙 Вернуться", "rasp"))))
-    days = []; i = 0; buttons = []
-    while len(days) < 2:
+    i = 0; buttons = []; msg = []
+    while len(msg) < 2:
         if(i >= 5):
             if(MsgInfo.callback_data[0] == None):
                 return "⚠ Похоже, расписания на ближайшие дни нет", Tg.generateInlineKeyb(empty=True)
             return Tg.editOrSend(MsgInfo, "⚠ Похоже, расписания на ближайшие дни нет",
                 reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🗒️ Меню расписания", "rasp"))))
-        day = mysql.query("SELECT `date`, `weekday`, `time_start`, `time_end` FROM lessons WHERE `group_id` = %s AND `date` = %s ORDER BY `lesson_num`",
+        day = mysql.query("SELECT `date`, `name`, `weekday`, `lesson_num`, `time_start`, `time_end` FROM lessons WHERE `group_id` = %s AND `date` = %s ORDER BY `lesson_num`",
             (group['id'], (date.today()+timedelta(days=i)).isoformat()), fetchall=True)
         if(day is None or day == ()):
             i += 1
             continue
+        les = "\n".join([f"[{l['lesson_num']}] {l['name']}" for l in day])
         day = {'info': {'date': day[0]['date'], 'weekday': day[0]['weekday'], 'count': len(day),
                 'time_start': datetime.strptime(f"{day[0]['date']} {day[0]['time_start']}", "%Y-%m-%d %H:%M:%S"),
                 'time_end': datetime.strptime(f"{day[-1]['date']} {day[-1]['time_end']}", "%Y-%m-%d %H:%M:%S")}}
@@ -289,26 +290,24 @@ def get_rasp(MsgInfo): # мне не нравится, переделать
             weather = {"temp": 0, "weather": "Нет данных"}
         day.update({'weather': weather})
         buttons.append(Tg.makeButton(day['info']['date'].strftime('%d.%m.%Y'), f"date_rasp/{group['id']},{day['info']['date'].strftime('%Y-%m-%d')}"))
-        days.append(day)
-        i += 1
-    buttons = Tg.makeRows(buttons) + Tg.makeRows(Tg.makeButton("🔙 Вернуться", "rasp"))
-    msg = f"""🗓️ Общая информация для *{group['name']}*
-- ID: `{group['id']}`
-"""
-    for day in days:
-        msg += f"""---------------------
-- День: *{day['info']['weekday']} {day['info']['date']}*
+        msg.append(f"""- День: *{day['info']['weekday']} {day['info']['date']}*
 - Кол-во пар: {day['info']['count']}
 - Первая пара: {day['info']['time_start'].strftime("%H:%M")}
 - Последняя пара: {day['info']['time_end'].strftime("%H:%M")}
 - Погода: {day['weather']['weather']} {day['weather']['temp']}°C
-"""
+- Пары:
+_{les}_
+""")
+        i += 1
+    buttons = Tg.makeRows(buttons) + Tg.makeRows(Tg.makeButton("🔙 Вернуться", "rasp"))
+    msg = f"🗓️ Общая информация для *{group['name']}*\n" + "---------------------\n".join(msg)
+    msg += f"---------------------\n- Последнее обновление: {group['last_appearance']}"
     if(MsgInfo.callback_data[0] == None):
         return msg, Tg.generateInlineKeyb(buttons)
     Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(buttons))
 
 def date_rasp(MsgInfo):
-    rasp = mysql.query("SELECT l.*, g.name AS gname FROM `lessons` l INNER JOIN `groups` g ON l.group_id = g.id WHERE `date` = %s AND `group_id` = %s ORDER BY `lesson_num`",
+    rasp = mysql.query("SELECT l.*, g.last_appearance, g.name AS gname FROM `lessons` l INNER JOIN `groups` g ON l.group_id = g.id WHERE `date` = %s AND `group_id` = %s ORDER BY `lesson_num`",
         (MsgInfo.callback_data[1][1], MsgInfo.callback_data[1][0]), fetchall=True)
     if(rasp is None or rasp == ()):
         return Tg.editOrSend(MsgInfo, "⚠ Не удалось получить информацию о группе.",
@@ -328,6 +327,7 @@ def date_rasp(MsgInfo):
 Аудитория: {rasp[i]['room']}
 Преподаватель: {rasp[i]['teacher']}""")
     msg = f"🗓️ *{rasp[0]['gname']} {MsgInfo.callback_data[1][1]} {rasp[0]['weekday']}*\n"+"\n---------------------\n".join(msg)
+    msg += f"\n---------------------\nПоследнее обновление: {rasp[0]['last_appearance'].isoformat()}"
     buttons = Tg.makeRows(Tg.makeButton("🗒️ Меню расписания", "rasp"), Tg.makeButton("🔙 Вернуться", f"get_rasp/{MsgInfo.callback_data[1][0]}"))
     Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(buttons))
 

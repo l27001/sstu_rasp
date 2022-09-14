@@ -31,11 +31,11 @@ def parse_groups():
                 group_id = int(a.get("href").split("/")[-1])
                 group_name = a.text.strip()
                 course = int(group_name[-2])
-                mysql.query("INSERT INTO `groups` (`institute`, `form`, `type`, `group-start`, `name`, `id`, `course`) \
-                    VALUES (%s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE `institute`=%s, `form`=%s, `type`=%s, `group-start`=%s, `name`=%s, `course`=%s, `last-appearance`=%s",
+                mysql.query("INSERT INTO `groups` (`institute`, `form`, `type`, `group_start`, `name`, `id`, `course`) \
+                    VALUES (%s, %s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE `institute`=%s, `form`=%s, `type`=%s, `group_start`=%s, `name`=%s, `course`=%s, `last_appearance`=%s",
                     (institute, edu_form, group_type, group_start, group_name, group_id, course, institute, edu_form, group_type, group_start, group_name, course, datetime.now().isoformat()))
     del_date = (date.today() - timedelta(days=2)).isoformat()
-    mysql.query("DELETE FROM `groups` WHERE `last-appearance` <= %s", (del_date, ))
+    mysql.query("DELETE FROM `groups` WHERE `last_appearance` <= %s", (del_date, ))
 
 def parse_rasp(group):
     response = requests.get(f"https://rasp.sstu.ru/rasp/group/{group}", headers=headers)
@@ -48,6 +48,12 @@ def parse_rasp(group):
         if("day-color-red" in day.get("class") or "day-color-blue" in day.get("class") or "day-header-empty" in day.get("class")): continue
         day_header = day.find("div", class_="day-header").find("div").contents
         lesson_day = [day_header[0].text, [int(i) for i in day_header[1].text.split(".")]]
+        cur_date = date.today()
+        if(lesson_day[1][0] == 1 and cur_date.month == 12):
+            cur_date.replace(year=cur_date.year + 1)
+        cur_date = cur_date.replace(day=lesson_day[1][0], month=lesson_day[1][1]).isoformat()
+        mysql.query("DELETE FROM `lessons` WHERE `date` = %s AND `group_id` = %s",
+                (cur_date, group))
         lesson_num = 1
         for div in day.findAll("div", class_="day-lesson"):
             if("day-lesson-empty" not in div.get("class")):
@@ -61,10 +67,6 @@ def parse_rasp(group):
                 lesson_room = " ".join(lesson_room)
                 lesson_teacher = "/".join(lesson_teacher)
                 if(lesson_teacher == ""): lesson_teacher = "Нет данных"
-                cur_date = date.today()
-                if(lesson_day[1][0] == 1 and cur_date.month == 12):
-                    cur_date.replace(year=cur_date.year + 1)
-                cur_date = cur_date.replace(day=lesson_day[1][0], month=lesson_day[1][1]).isoformat()
                 mysql.query("REPLACE INTO `lessons` (`date`, `weekday`, `time_start`, `time_end`, `teacher`, `lesson_num`, `name`, `type`, `room`, `group_id`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                     (cur_date, lesson_day[0], lesson_hours[0], lesson_hours[1], lesson_teacher, lesson_num, lesson_name, lesson_type, lesson_room, group))
             lesson_num += 1
@@ -129,7 +131,7 @@ if(__name__ == "__main__"):
         elif(sys.argv[1] == "groups"):
             parse_groups()
         elif(sys.argv[1] == "group"):
-            if(len(sys.argv) < 2 or sys.argv[2].is_digit() == False):
+            if(len(sys.argv) < 2 or sys.argv[2].isdigit() == False):
                 print("./parse.py group <ID>")
             else:
                 parse_rasp(int(sys.argv[2]))
