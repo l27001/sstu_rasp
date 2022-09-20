@@ -180,7 +180,7 @@ def select_group(MsgInfo):
         (MsgInfo.callback_data[1][0], MsgInfo.callback_data[1][1], MsgInfo.callback_data[1][2]), fetchall=True)
     rows = Tg.makeRows([Tg.makeButton(i['name'], f"cg/{i['id']}") for i in groups], max_=2)
     Tg.editOrSend(MsgInfo, "Наконец, выбери свою группу:",
-        reply_markup=Tg.generateInlineKeyb(rows, Tg.makeRows(Tg.makeButton("🔙 Искать заного", "pre_find_abbr"))))
+        reply_markup=Tg.generateInlineKeyb(rows, Tg.makeRows(Tg.makeButton("🔙 Искать заново", "pre_find_abbr"))))
 
 def confirm_group(MsgInfo): # вынести выбор группы в отдельную функцию
     setUserState(MsgInfo.from_chat, None)
@@ -191,7 +191,7 @@ def confirm_group(MsgInfo): # вынести выбор группы в отде
         (MsgInfo.from_chat, MsgInfo.callback_data[1][0]))
     if(already_in is not None):
         return Tg.editOrSend(MsgInfo, "🔴 Эта группа уже выбрана тобой!",
-            reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🔙 Искать заного", "pre_find_abbr"))))
+            reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🔙 Искать заново", "pre_find_abbr"))))
     mysql.query("INSERT INTO `group_subs` (`user_id`, `group_id`) VALUES (%s, %s)", (MsgInfo.from_chat, MsgInfo.callback_data[1][0]))
     Tg.editOrSend(MsgInfo, "🟢 Группа была отмечена как твоя!",
         reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("📝 Мои группы", "mg"),

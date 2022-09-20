@@ -36,6 +36,7 @@ def parse_groups():
                     (institute, edu_form, group_type, group_start, group_name, group_id, course, institute, edu_form, group_type, group_start, group_name, course, datetime.now().isoformat()))
     del_date = (date.today() - timedelta(days=2)).isoformat()
     mysql.query("DELETE FROM `groups` WHERE `last_appearance` <= %s", (del_date, ))
+    mysql.query("DELETE FROM `lessons` WHERE `date` <= %s", (del_date, ))
 
 def parse_rasp(group):
     response = requests.get(f"https://rasp.sstu.ru/rasp/group/{group}", headers=headers)
@@ -70,8 +71,6 @@ def parse_rasp(group):
                 mysql.query("REPLACE INTO `lessons` (`date`, `weekday`, `time_start`, `time_end`, `teacher`, `lesson_num`, `name`, `type`, `room`, `group_id`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                     (cur_date, lesson_day[0], lesson_hours[0], lesson_hours[1], lesson_teacher, lesson_num, lesson_name, lesson_type, lesson_room, group))
             lesson_num += 1
-    del_date = (date.today() - timedelta(days=2)).isoformat()
-    mysql.query("DELETE FROM `lessons` WHERE `date` <= %s", (del_date, ))
 
 def parse_weather():
     response = requests.get("https://api.openweathermap.org/data/2.5/forecast?appid=e07e04a3d6a1cf3000173581aded051e&units=metric&lat=51.530018&lon=46.034683&lang=ru")
@@ -123,9 +122,9 @@ if(__name__ == "__main__"):
             parse_groups()
             groups = mysql.query("SELECT id FROM groups", fetchall=True)
             for n in groups:
-                try: parse_rasp(n["id"]); sleep(.5)
+                try: parse_rasp(n["id"]); sleep(.7)
                 except KeyboardInterrupt: exit()
-                except: print(f"Error while parsing group with id {n['id']}")
+                except Exception as e: print(f"Error while parsing group with id {n['id']}\n{e}\n")
         elif(sys.argv[1] == "weather"):
             parse_weather()
         elif(sys.argv[1] == "groups"):
