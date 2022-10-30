@@ -1,5 +1,6 @@
 import pymysql, requests, json
 from pymysql.err import InterfaceError, OperationalError
+from time import sleep
 import config
 
 class Mysql:
@@ -56,12 +57,18 @@ class Tg:
         params = {"chat_id":chat_id, "text":text, "allow_sending_without_reply":allow_sending_without_reply, "parse_mode":parse_mode}
         params.update(kwargs)
         data = requests.get(f"{self.url}sendMessage", params=params)
+        if(data.status_code == 429):
+            sleep(1)
+            data = requests.get(f"{self.url}sendPhoto", params=params)
         return data.json()
 
     def sendPhoto(self, chat_id, photo, **kwargs):
         params = {"chat_id":chat_id, "photo":photo}
         params.update(kwargs)
         data = requests.get(f"{self.url}sendPhoto", params=params)
+        if(data.status_code == 429):
+            sleep(1)
+            data = requests.get(f"{self.url}sendPhoto", params=params)
         return data.json()
 
     def getMe(self):
@@ -97,6 +104,9 @@ class Tg:
         params = {"chat_id": chat, "message_id": message, "text": text, "parse_mode": parse_mode}
         params.update(kwargs)
         data = requests.get(f"{self.url}editMessageText", params=params)
+        if(data.status_code == 429):
+            sleep(1)
+            data = requests.get(f"{self.url}sendPhoto", params=params)
         return data.json()
 
     def editOrSend(self, MsgInfo, text, **kwargs):

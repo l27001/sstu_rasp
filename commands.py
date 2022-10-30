@@ -261,7 +261,7 @@ def rasp(MsgInfo):
         buttons.append(Tg.makeButton("🔍 Найти группу", "start_find"))
     Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(Tg.makeRows(buttons, max_=2)))
 
-def get_rasp(MsgInfo): # мне не нравится, переделать
+def get_rasp(MsgInfo):
     group = mysql.query("SELECT * FROM `groups` WHERE `id` = %s", (MsgInfo.callback_data[1][0], ))
     if(group is None):
         if(MsgInfo.callback_data[0] == None):
@@ -269,27 +269,30 @@ def get_rasp(MsgInfo): # мне не нравится, переделать
         return Tg.editOrSend(MsgInfo, "⚠ Не удалось получить информацию о группе.",
             reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("📝 Мои группы", "mg"), Tg.makeButton("🔙 Вернуться", "rasp"))))
     i = 0; buttons = []; msg = []
-    while len(msg) < 2:
-        if(i >= 5):
-            if(MsgInfo.callback_data[0] == None):
-                return "⚠ Похоже, расписания на ближайшие дни нет", Tg.generateInlineKeyb(empty=True)
-            return Tg.editOrSend(MsgInfo, "⚠ Похоже, расписания на ближайшие дни нет",
-                reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🗒️ Меню расписания", "rasp"))))
-        day = mysql.query("SELECT `date`, `name`, `weekday`, `lesson_num`, `time_start`, `time_end` FROM lessons WHERE `group_id` = %s AND `date` = %s ORDER BY `lesson_num`",
+    while len(msg) < 6:
+        if(i > 8):
+            if(len(msg) == 0):
+                if(MsgInfo.callback_data[0] == None):
+                    return "⚠ Похоже, расписания на ближайшие дни нет", Tg.generateInlineKeyb(empty=True)
+                return Tg.editOrSend(MsgInfo, "⚠ Похоже, расписания на ближайшие дни нет",
+                    reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🗒️ Меню расписания", "rasp"))))
+            else:
+                break
+        day = mysql.query("SELECT `date`, `type`, `name`, `weekday`, `lesson_num`, `time_start`, `time_end` FROM lessons WHERE `group_id` = %s AND `date` = %s ORDER BY `lesson_num`",
             (group['id'], (date.today()+timedelta(days=i)).isoformat()), fetchall=True)
-        if(day is None or day == ()):
-            i += 1
-            continue
-        les = "\n".join([f"[{l['lesson_num']}] {l['name']}" for l in day])
+        i += 1
+        if(day is None or day == ()): continue
+        les = "\n".join([f"[{l['lesson_num']}] {l['name']} {l['type']}" for l in day])
         day = {'info': {'date': day[0]['date'], 'weekday': day[0]['weekday'], 'count': len(day),
                 'time_start': datetime.strptime(f"{day[0]['date']} {day[0]['time_start']}", "%Y-%m-%d %H:%M:%S"),
                 'time_end': datetime.strptime(f"{day[-1]['date']} {day[-1]['time_end']}", "%Y-%m-%d %H:%M:%S")}}
+        buttons.append(Tg.makeButton(f"➡️ {day['info']['date'].strftime('%d.%m.%Y')}", f"date_rasp/{group['id']},{day['info']['date'].strftime('%Y-%m-%d')}"))
+        if(len(msg) >= 2): continue
         weather = mysql.query("SELECT `temp`,`weather` FROM `weather` WHERE `date` BETWEEN %s AND %s",
-            (day['info']['time_start'].strftime('%Y-%m-%d %H:%M:%S'), day['info']['time_end'].strftime('%Y-%m-%d %H:%M')))
+            (day['info']['time_start'].strftime('%Y-%m-%d %H:%M:%S'), day['info']['time_end'].strftime('%Y-%m-%d %H:%M:%S')))
         if(weather == None):
             weather = {"temp": 0, "weather": "Нет данных"}
         day.update({'weather': weather})
-        buttons.append(Tg.makeButton(day['info']['date'].strftime('%d.%m.%Y'), f"date_rasp/{group['id']},{day['info']['date'].strftime('%Y-%m-%d')}"))
         msg.append(f"""- День: *{day['info']['weekday']} {day['info']['date']}*
 - Кол-во пар: {day['info']['count']}
 - Первая пара: {day['info']['time_start'].strftime("%H:%M")}
@@ -298,10 +301,10 @@ def get_rasp(MsgInfo): # мне не нравится, переделать
 - Пары:
 _{les}_
 """)
-        i += 1
-    buttons = Tg.makeRows(buttons) + Tg.makeRows(Tg.makeButton("🔙 Вернуться", "rasp"))
+    last_upd = group['last_appearance'].strftime("%Y-%m-%d %H:%M")
+    buttons = Tg.makeRows(buttons, max_=2) + Tg.makeRows(Tg.makeButton("🔙 Вернуться", "rasp"))
     msg = f"🗓️ Общая информация для *{group['name']}*\n" + "---------------------\n".join(msg)
-    msg += f"---------------------\n- Последнее обновление: {group['last_appearance']}"
+    msg += f"---------------------\n- Последнее обновление: {last_upd}"
     if(MsgInfo.callback_data[0] == None):
         return msg, Tg.generateInlineKeyb(buttons)
     Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(buttons))
@@ -326,8 +329,9 @@ def date_rasp(MsgInfo):
 Время: {rasp[i]['time_start'].strftime("%H:%M")} - {rasp[i]['time_end'].strftime("%H:%M")}
 Аудитория: {rasp[i]['room']}
 Преподаватель: {rasp[i]['teacher']}""")
+    last_upd = rasp[0]['last_appearance'].strftime("%Y-%m-%d %H:%M")
     msg = f"🗓️ *{rasp[0]['gname']} {MsgInfo.callback_data[1][1]} {rasp[0]['weekday']}*\n"+"\n---------------------\n".join(msg)
-    msg += f"\n---------------------\nПоследнее обновление: {rasp[0]['last_appearance'].isoformat()}"
+    msg += f"\n---------------------\nПоследнее обновление: {last_upd}"
     buttons = Tg.makeRows(Tg.makeButton("🗒️ Меню расписания", "rasp"), Tg.makeButton("🔙 Вернуться", f"get_rasp/{MsgInfo.callback_data[1][0]}"))
     Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(buttons))
 

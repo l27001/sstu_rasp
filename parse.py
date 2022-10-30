@@ -101,7 +101,7 @@ def notify_tomorrow():
             (f"{lessons[0]['date']} {lessons[0]['time_start'].strftime('%H:%M')}", f"{lessons[-1]['date']} {lessons[-1]['time_end'].strftime('%H:%M')}"))
         if(weather is None):
             weather = {"temp": 0, "weather": "Нет данных"}
-        les = "\n".join([f"[{i['lesson_num']}] {i['name']}" for i in lessons])
+        les = "\n".join([f"[{i['lesson_num']}] {i['name']} {i['type']}" for i in lessons])
         msg = f"""🔔 Напоминание о расписании на завтра для *{group['name']}*:
 Кол-во пар: {len(lessons)}
 Первая пара: {lessons[0]['time_start'].strftime("%H:%M")}
