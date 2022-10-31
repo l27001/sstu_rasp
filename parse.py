@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 from datetime import date, timedelta, datetime
 from time import sleep
 import methods
+from config import openweathermap_key
 
 headers = {
     'User-Agent': "Mozilla/5.0 (compatible; ssturasp_bot/v0.1.1; https://t.me/ssturasp_bot; l27001@ezdomain.ru)"
@@ -12,7 +13,7 @@ headers = {
 def parse_groups():
     response = requests.get("https://rasp.sstu.ru/", headers=headers)
     if(response.status_code != 200):
-        raise(f"Got unknown HTTP status code: {response.status_code}")
+        print(f"Got unknown HTTP status code: {response.status_code}")
 
     page = BeautifulSoup(response.text, "html.parser")
     cards = page.find("div", id="raspStructure").findAll("div", class_="card")
@@ -41,7 +42,7 @@ def parse_groups():
 def parse_rasp(group):
     response = requests.get(f"https://rasp.sstu.ru/rasp/group/{group}", headers=headers)
     if(response.status_code != 200):
-        raise(f"Got unknown HTTP status code: {response.status_code}")
+        print(f"Got unknown HTTP status code: {response.status_code}")
 
     page = BeautifulSoup(response.text, "html.parser")
     days = page.findAll("div", class_="day")
@@ -73,9 +74,11 @@ def parse_rasp(group):
             lesson_num += 1
 
 def parse_weather():
-    response = requests.get("https://api.openweathermap.org/data/2.5/forecast?appid=e07e04a3d6a1cf3000173581aded051e&units=metric&lat=51.530018&lon=46.034683&lang=ru")
+    if(openweathermap_key == None):
+        return 0
+    response = requests.get(f"https://api.openweathermap.org/data/2.5/forecast?appid={openweathermap_key}&units=metric&lat=51.530018&lon=46.034683&lang=ru", headers=headers)
     if(response.status_code != 200):
-        raise(f"Got unknown HTTP status code: {response.status_code}")
+        print(f"Got unknown HTTP status code: {response.status_code}")
     data = response.json()
     for n in data['list']:
         mysql.query("REPLACE INTO `weather` (`date`, `temp`, `weather`, `weather_main`, `weather_icon`) VALUES (%s, %s, %s, %s, %s)",

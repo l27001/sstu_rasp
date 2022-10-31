@@ -4,4 +4,5 @@ db = {"host": "localhost",
         "password": "very_hard_pass",
         "database": "db"}
 tg_info = {'access_token': 'tg_api_token', 'url':'https://api.telegram.org/'}
+openweathermap_key = None
 
