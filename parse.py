@@ -14,7 +14,7 @@ def parse_groups():
     response = requests.get("https://rasp.sstu.ru/", headers=headers)
     if(response.status_code != 200):
         print(f"Got unknown HTTP status code: {response.status_code}")
-
+        return 0
     page = BeautifulSoup(response.text, "html.parser")
     cards = page.find("div", id="raspStructure").findAll("div", class_="card")
 
@@ -43,7 +43,7 @@ def parse_rasp(group):
     response = requests.get(f"https://rasp.sstu.ru/rasp/group/{group}", headers=headers)
     if(response.status_code != 200):
         print(f"Got unknown HTTP status code: {response.status_code}")
-
+        return 0
     page = BeautifulSoup(response.text, "html.parser")
     days = page.findAll("div", class_="day")
     for day in days:
@@ -79,6 +79,7 @@ def parse_weather():
     response = requests.get(f"https://api.openweathermap.org/data/2.5/forecast?appid={openweathermap_key}&units=metric&lat=51.530018&lon=46.034683&lang=ru", headers=headers)
     if(response.status_code != 200):
         print(f"Got unknown HTTP status code: {response.status_code}")
+        return 0
     data = response.json()
     for n in data['list']:
         mysql.query("REPLACE INTO `weather` (`date`, `temp`, `weather`, `weather_main`, `weather_icon`) VALUES (%s, %s, %s, %s, %s)",
