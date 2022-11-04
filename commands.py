@@ -77,10 +77,10 @@ def execute_command(data):
         else:
             for i in res:
                 MsgInfo.callback_data = [None, [i['id']]]
-                msg, keyb = get_rasp(MsgInfo)
+                msg, _ = get_rasp(MsgInfo)
                 answers.append(Tg.inlineQueryResult("article", i['id'], title=i['name'],
-                    input_message_content={"message_text": msg, "parse_mode": "Markdown"}, reply_markup=keyb))
-        Tg.answerInlineQuery(MsgInfo.query_id, answers)
+                    input_message_content={"message_text": msg, "parse_mode": "Markdown"}))
+        Tg.answerInlineQuery(MsgInfo.query_id, answers, cache_time=3600, switch_pm_parameter="1", switch_pm_text="🏠 Перейти к боту")
 
 ###
 def menu(MsgInfo):
@@ -286,7 +286,7 @@ def get_rasp(MsgInfo):
         day = {'info': {'date': day[0]['date'], 'weekday': day[0]['weekday'], 'count': len(day),
                 'time_start': datetime.strptime(f"{day[0]['date']} {day[0]['time_start']}", "%Y-%m-%d %H:%M:%S"),
                 'time_end': datetime.strptime(f"{day[-1]['date']} {day[-1]['time_end']}", "%Y-%m-%d %H:%M:%S")}}
-        buttons.append(Tg.makeButton(f"➡️ {day['info']['date'].strftime('%d.%m.%Y')}", f"date_rasp/{group['id']},{day['info']['date'].strftime('%Y-%m-%d')}"))
+        buttons.append(Tg.makeButton(f"➡️ {day['info']['date'].strftime('%d.%m')} ({day['info']['weekday']})", f"date_rasp/{group['id']},{day['info']['date'].strftime('%Y-%m-%d')}"))
         if(len(msg) >= 2): continue
         weather = mysql.query("SELECT `temp`,`weather` FROM `weather` WHERE `date` BETWEEN %s AND %s",
             (day['info']['time_start'].strftime('%Y-%m-%d %H:%M:%S'), day['info']['time_end'].strftime('%Y-%m-%d %H:%M:%S')))

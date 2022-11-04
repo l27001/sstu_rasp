@@ -29,7 +29,8 @@ class Mysql:
                  db=config.db['database'],
                  charset='utf8mb4',
                  autocommit=True,
-                 cursorclass=pymysql.cursors.DictCursor)
+                 cursorclass=pymysql.cursors.DictCursor,
+                 write_timeout=5)
 
     def close(self):
         self.con.close() 
