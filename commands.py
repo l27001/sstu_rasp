@@ -302,12 +302,12 @@ def get_rasp(MsgInfo):
 _{les}_
 """)
     last_upd = group['last_appearance'].strftime("%Y-%m-%d %H:%M")
-    buttons = Tg.makeRows(buttons, max_=2) + Tg.makeRows(Tg.makeButton("🔙 Вернуться", "rasp"))
-    msg = f"🗓️ Общая информация для *{group['name']}*\n" + "---------------------\n".join(msg)
+    buttons = Tg.makeRows(buttons, max_=2) + Tg.makeRows(Tg.makeButton("🌐 Расписание на неделю", web_app={"url": f"https://rasp.sstu.ru/rasp/group/{group['id']}"})) + Tg.makeRows(Tg.makeButton("🔙 Вернуться", "rasp"), Tg.makeButton("🏠 Меню", "clear_state"))
+    msg = f"🗓️ Общая информация для *{group['name']}*\n---------------------\n" + "---------------------\n".join(msg)
     msg += f"---------------------\n- Последнее обновление: {last_upd}"
     if(MsgInfo.callback_data[0] == None):
         return msg, Tg.generateInlineKeyb(buttons)
-    Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(buttons))
+    Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(buttons, home=False))
 
 def date_rasp(MsgInfo):
     rasp = mysql.query("SELECT l.*, g.last_appearance, g.name AS gname FROM `lessons` l INNER JOIN `groups` g ON l.group_id = g.id WHERE `date` = %s AND `group_id` = %s ORDER BY `lesson_num`",
@@ -330,10 +330,13 @@ def date_rasp(MsgInfo):
 Аудитория: {rasp[i]['room']}
 Преподаватель: {rasp[i]['teacher']}""")
     last_upd = rasp[0]['last_appearance'].strftime("%Y-%m-%d %H:%M")
-    msg = f"🗓️ *{rasp[0]['gname']} {MsgInfo.callback_data[1][1]} {rasp[0]['weekday']}*\n"+"\n---------------------\n".join(msg)
+    msg = f"🗓️ *{rasp[0]['gname']} {MsgInfo.callback_data[1][1]} {rasp[0]['weekday']}*\n---------------------\n"+"\n---------------------\n".join(msg)
     msg += f"\n---------------------\nПоследнее обновление: {last_upd}"
     buttons = Tg.makeRows(Tg.makeButton("🗒️ Меню расписания", "rasp"), Tg.makeButton("🔙 Вернуться", f"get_rasp/{MsgInfo.callback_data[1][0]}"))
     Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(buttons))
+
+def test(MsgInfo):
+    Tg.editOrSend(MsgInfo, "test", reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("Test Button", web_app={"url":"https://rasp.sstu.ru/rasp/group/130"})), home=False))
 
 ### Список команд
 cmds = {'/start':menu,
@@ -342,6 +345,7 @@ cmds = {'/start':menu,
         '/find':start_find,
         '/groups':my_groups,
         '/rasp':rasp,
+        '/test':test,
 }
 
 ### Список inline действий

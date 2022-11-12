@@ -91,7 +91,6 @@ def parse_rasp(group):
                         (cur_date, lesson_day[0], lesson_hours[0], lesson_hours[1], lesson_teacher, lesson_num, lesson_name, lesson_type, lesson_room, group))
                 lesson_num += 1
     finally: mysql.close()
-    print(f"Group {group} done.")
 
 def parse_weather():
     if(openweathermap_key == None):
