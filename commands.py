@@ -313,7 +313,7 @@ def date_rasp(MsgInfo):
     rasp = mysql.query("SELECT l.*, g.last_appearance, g.name AS gname FROM `lessons` l INNER JOIN `groups` g ON l.group_id = g.id WHERE `date` = %s AND `group_id` = %s ORDER BY `lesson_num`",
         (MsgInfo.callback_data[1][1], MsgInfo.callback_data[1][0]), fetchall=True)
     if(rasp is None or rasp == ()):
-        return Tg.editOrSend(MsgInfo, "⚠ Не удалось получить информацию о группе.",
+        return Tg.editOrSend(MsgInfo, "⚠ Не удалось получить информацию о расписании.",
             reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("📝 Мои группы", "mg"), Tg.makeButton("🔙 Вернуться", "rasp"))))
     msg = []
     now = datetime.now()
@@ -335,9 +335,6 @@ def date_rasp(MsgInfo):
     buttons = Tg.makeRows(Tg.makeButton("🗒️ Меню расписания", "rasp"), Tg.makeButton("🔙 Вернуться", f"get_rasp/{MsgInfo.callback_data[1][0]}"))
     Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(buttons))
 
-def test(MsgInfo):
-    Tg.editOrSend(MsgInfo, "test", reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("Test Button", web_app={"url":"https://rasp.sstu.ru/rasp/group/130"})), home=False))
-
 ### Список команд
 cmds = {'/start':menu,
         '/menu':menu,
@@ -345,7 +342,6 @@ cmds = {'/start':menu,
         '/find':start_find,
         '/groups':my_groups,
         '/rasp':rasp,
-        '/test':test,
 }
 
 ### Список inline действий
