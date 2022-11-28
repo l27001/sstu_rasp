@@ -54,7 +54,7 @@ class Tg:
             self.offset = data['result'][-1]['update_id']+1
         return data
 
-    def sendMessage(self, chat_id, text, allow_sending_without_reply=True, parse_mode="Markdown", **kwargs):
+    def sendMessage(self, chat_id, text, allow_sending_without_reply=True, parse_mode="HTML", **kwargs):
         params = {"chat_id":chat_id, "text":text, "allow_sending_without_reply":allow_sending_without_reply, "parse_mode":parse_mode}
         params.update(kwargs)
         data = requests.get(f"{self.url}sendMessage", params=params)
@@ -101,7 +101,7 @@ class Tg:
             s.append([{"text": "🏠 Меню", "callback_data": "clear_state"}])
         return json.dumps({"inline_keyboard": s})
 
-    def editMessageText(self, chat, message, text, parse_mode="Markdown", **kwargs):
+    def editMessageText(self, chat, message, text, parse_mode="HTML", **kwargs):
         params = {"chat_id": chat, "message_id": message, "text": text, "parse_mode": parse_mode}
         params.update(kwargs)
         data = requests.get(f"{self.url}editMessageText", params=params)

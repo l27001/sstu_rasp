@@ -12,15 +12,16 @@ headers = {
 }
 
 def parse_groups():
-    response = requests.get("https://rasp.sstu.ru/", headers=headers)
-    i = 1
-    while response.status_code != 200:
-        if(i > 3):
-            print(f"Main page got unknown HTTP status code: {response.status_code}")
-            return 0
-        sleep(1)
-        response = requests.get("https://rasp.sstu.ru/", headers=headers)
-        i+=1
+    attempts = 0
+    while attempts < 3:
+        try:
+            response = requests.get("https://rasp.sstu.ru/", headers=headers, timeout=5)
+            if(response.status_code != 200): raise RuntimeError(f'Unexpected http code for parse_groups - {response.status_code}')
+            break
+        except Exception as e:
+            print(e)
+            sleep(1)
+            attempts += 1
     page = BeautifulSoup(response.text, "html.parser")
     cards = page.find("div", id="raspStructure").findAll("div", class_="card")
     groups = []
@@ -51,15 +52,16 @@ def parse_groups():
     return groups
 
 def parse_rasp(group):
-    response = requests.get(f"https://rasp.sstu.ru/rasp/group/{group}", headers=headers, timeout=5)
-    i = 1
-    while response.status_code != 200:
-        if(i > 3):
-            print(f"Group {group} got unknown HTTP status code: {response.status_code}")
-            return 0
-        sleep(1)
-        response = requests.get(f"https://rasp.sstu.ru/rasp/group/{group}", headers=headers, timeout=5)
-        i+=1
+    attempts = 0
+    while attempts < 3:
+        try:
+            response = requests.get(f"https://rasp.sstu.ru/rasp/group/{group}", headers=headers, timeout=5)
+            if(response.status_code != 200): raise RuntimeError(f'Unexpected http code for group #{group} - {response.status_code}')
+            break
+        except Exception as e:
+            print(e)
+            sleep(1)
+            attempts += 1
     mysql = methods.Mysql()
     try:
         page = BeautifulSoup(response.text, "html.parser")
@@ -116,7 +118,7 @@ def notify_tomorrow():
         groups = mysql.query("SELECT * FROM `groups`", fetchall=True)
         tomorrow = date.today() + timedelta(days=1)
         for group in groups:
-            subscribers = mysql.query("SELECT * FROM `group_subs` WHERE `group_id` = %s AND `subscribe` = 1", (group['id'], ), fetchall=True)
+            subscribers = mysql.query("SELECT * FROM `group_subs` WHERE `group_id` = %s AND `user_id` = '731264169' AND `subscribe` = 1", (group['id'], ), fetchall=True)
             if(subscribers is None or subscribers == ()):
                 continue
             lessons = mysql.query("SELECT * FROM `lessons` WHERE `date` = %s AND `group_id` = %s", (tomorrow.isoformat(), group['id']), fetchall=True)
@@ -130,13 +132,13 @@ def notify_tomorrow():
             if(weather is None):
                 weather = {"temp": 0, "weather": "Нет данных"}
             les = "\n".join([f"[{i['lesson_num']}] {i['name']} {i['type']}" for i in lessons])
-            msg = f"""🔔 Напоминание о расписании на завтра для *{group['name']}*:
-Кол-во пар: {len(lessons)}
-Первая пара: {lessons[0]['time_start'].strftime("%H:%M")}
-Последняя пара: {lessons[-1]['time_end'].strftime("%H:%M")}
-Погода: {weather['weather']} {weather['temp']}°C
-Пары:
-_{les}_"""
+            msg = f"""🔔 <u>Напоминание о расписании на завтра для <b>{group['name']}</b></u>:
+<b>Кол-во пар</b>: {len(lessons)}
+<b>Первая пара</b>: {lessons[0]['time_start'].strftime("%H:%M")}
+<b>Последняя пара</b>: {lessons[-1]['time_end'].strftime("%H:%M")}
+<b>Погода</b>: {weather['weather']} {weather['temp']}°C
+<b>Пары</b>:
+<i>{les}</i>"""
             keyb = Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🗒️ Подробнее", f"date_rasp/{group['id']},{lessons[0]['date']}"),
                 Tg.makeButton("❗ Отписаться от рассылки", f"toggle_sub/{group['id']}"), max_=2))
             for sub in subscribers:
@@ -147,7 +149,7 @@ if(__name__ == "__main__"):
     import sys
     if(len(sys.argv) == 1):
         groups = parse_groups()
-        p = Pool(40)
+        p = Pool(20)
         p.map(parse_rasp, groups)
         p.close()
         p.join()
