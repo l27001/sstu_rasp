@@ -118,7 +118,7 @@ def notify_tomorrow():
         groups = mysql.query("SELECT * FROM `groups`", fetchall=True)
         tomorrow = date.today() + timedelta(days=1)
         for group in groups:
-            subscribers = mysql.query("SELECT * FROM `group_subs` WHERE `group_id` = %s AND `user_id` = '731264169' AND `subscribe` = 1", (group['id'], ), fetchall=True)
+            subscribers = mysql.query("SELECT * FROM `group_subs` WHERE `group_id` = %s AND `subscribe` = 1", (group['id'], ), fetchall=True)
             if(subscribers is None or subscribers == ()):
                 continue
             lessons = mysql.query("SELECT * FROM `lessons` WHERE `date` = %s AND `group_id` = %s", (tomorrow.isoformat(), group['id']), fetchall=True)
