@@ -17,9 +17,10 @@ def parse_groups():
         try:
             response = requests.get("https://rasp.sstu.ru/", headers=headers, timeout=5)
             if(response.status_code != 200): raise RuntimeError(f'Unexpected http code for parse_groups - {response.status_code}')
+            if(attempts > 0): print("groups - SUCCESS!")
             break
         except Exception as e:
-            print(e)
+            print(f"groups - {e}")
             sleep(1)
             attempts += 1
     page = BeautifulSoup(response.text, "html.parser")
@@ -57,9 +58,10 @@ def parse_rasp(group):
         try:
             response = requests.get(f"https://rasp.sstu.ru/rasp/group/{group}", headers=headers, timeout=5)
             if(response.status_code != 200): raise RuntimeError(f'Unexpected http code for group #{group} - {response.status_code}')
+            if(attempts > 0): print(f"#{group} - SUCCESS!")
             break
         except Exception as e:
-            print(e)
+            print(f"#{group} - {e}")
             sleep(1)
             attempts += 1
     mysql = methods.Mysql()
@@ -68,7 +70,9 @@ def parse_rasp(group):
         days = page.findAll("div", class_="day")
         for day in days:
             if("day-color-red" in day.get("class") or "day-color-blue" in day.get("class") or "day-header-empty" in day.get("class")): continue
-            day_header = day.find("div", class_="day-header").find("div").contents
+            day_header = day.find("div", class_="day-header")
+            if("day-header-hour" in day_header.get("class")): continue
+            day_header = day_header.find("div").contents
             lesson_day = [day_header[0].text, [int(i) for i in day_header[1].text.split(".")]]
             cur_date = date.today()
             if(lesson_day[1][0] == 1 and cur_date.month == 12):

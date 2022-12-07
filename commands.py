@@ -346,6 +346,27 @@ def date_rasp(MsgInfo):
     buttons = Tg.makeRows(Tg.makeButton("🗒️ Меню расписания", "rasp"), Tg.makeButton("🔙 Вернуться", f"get_rasp/{MsgInfo.callback_data[1][0]}"))
     Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(buttons))
 
+def stats(MsgInfo):
+    date = mysql.query("SELECT `last_appearance` FROM `groups` ORDER BY `last_appearance` DESC")['last_appearance']
+    groups = mysql.query("SELECT COUNT(*) FROM `groups`")["COUNT(*)"]
+    lessons = mysql.query("SELECT COUNT(*) FROM `lessons`")["COUNT(*)"]
+    users = mysql.query("SELECT COUNT(*) FROM `users`")["COUNT(*)"]
+    subs = mysql.query("SELECT COUNT(*) FROM `group_subs`")["COUNT(*)"]
+    notifies = mysql.query("SELECT COUNT(*) FROM `group_subs` WHERE `subscribe` = 1")["COUNT(*)"]
+    weather = mysql.query("SELECT `date` FROM `weather` WHERE `date` LIKE %s", (((datetime.now()+timedelta(days=1)).strftime("%Y-%m-%d"))+"%",))
+    if(weather is not None):
+        weather = "Есть данные"
+    else:
+        weather = "Нет данных"
+    msg = f"""ℹ️ <b>Статистика:</b>
+<b>Последнее обновление</b>: {date}
+<b>Кол-во групп</b>: {groups}
+<b>Кол-во пар</b>: {lessons}
+<b>Кол-во пользователей</b>: {users}
+<b>Кол-во подписок/с уведомлениями</b>: {subs}/{notifies}
+<b>Погода на завтра</b>: {weather}"""
+    Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb())
+
 ### Список команд
 cmds = {'/start':menu,
         '/menu':menu,
@@ -353,6 +374,7 @@ cmds = {'/start':menu,
         '/find':start_find,
         '/groups':my_groups,
         '/rasp':rasp,
+        '/stats':stats,
 }
 
 ### Список inline действий
