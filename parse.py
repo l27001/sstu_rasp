@@ -134,7 +134,7 @@ def notify_tomorrow():
             weather = mysql.query("SELECT `temp`,`weather` FROM `weather` WHERE `date` BETWEEN %s AND %s",
                 (f"{lessons[0]['date']} {lessons[0]['time_start'].strftime('%H:%M')}", f"{lessons[-1]['date']} {lessons[-1]['time_end'].strftime('%H:%M')}"))
             if(weather is None):
-                weather = {"temp": 0, "weather": "Нет данных"}
+                weather = {"temp": None, "weather": "Нет данных"}
             les = "\n".join([f"[{i['lesson_num']}] {i['name']} {i['type']}" for i in lessons])
             msg = f"""🔔 <u>Напоминание о расписании на завтра для <b>{group['name']}</b></u>:
 <b>Кол-во пар</b>: {len(lessons)}

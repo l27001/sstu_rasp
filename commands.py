@@ -79,7 +79,7 @@ def execute_command(data):
                 MsgInfo.callback_data = [None, [i['id']]]
                 msg, _ = get_rasp(MsgInfo)
                 answers.append(Tg.inlineQueryResult("article", i['id'], title=i['name'],
-                    input_message_content={"message_text": msg, "parse_mode": "Markdown"}))
+                    input_message_content={"message_text": msg, "parse_mode": "HTML"}))
         Tg.answerInlineQuery(MsgInfo.query_id, answers, cache_time=3600, switch_pm_parameter="1", switch_pm_text="🏠 Перейти к боту")
 
 ###
@@ -117,7 +117,7 @@ def info(MsgInfo):
 
 def pre_find_abbr(MsgInfo):
     setUserState(MsgInfo.from_chat, "sa")
-    text = "ℹ️ Отправьте аббревиатуру твоего направления (Прим: ИФСТ, СЗС, АРХТ)"
+    text = "ℹ️ Отправьте аббревиатуру вашего направления (Прим: ИФСТ, СЗС, АРХТ)"
     if(MsgInfo.is_chat == True):
         text += "\n<i>P.S. В беседе необходимо ответить на сообщение чтобы бот его увидел!</i>"
     Tg.editOrSend(MsgInfo, text, reply_markup=Tg.generateInlineKeyb())
@@ -142,7 +142,7 @@ def select_by_id(MsgInfo): # вынести выбор группы в отде�
     else: grp_name = grp_name['name']
     count = mysql.query("SELECT COUNT(*) FROM `group_subs` WHERE `user_id` = %s", (MsgInfo.from_chat, ))['COUNT(*)']
     if(count >= 5):
-        return Tg.editOrSend(MsgInfo, "🔴 ВЫ достигли лимита групп!",
+        return Tg.editOrSend(MsgInfo, "🔴 Вы достигли лимита групп!",
             reply_markup=Tg.generateInlineKeyb())
     already_in = mysql.query("SELECT `user_id` FROM `group_subs` WHERE `user_id` = %s AND `group_id` = %s",
         (MsgInfo.from_chat, id_))
@@ -263,7 +263,7 @@ def toggle_subscribtion(MsgInfo):
 def rasp(MsgInfo):
     groups = getUserGroups(MsgInfo.from_chat)
     buttons = []
-    msg = "🔘 Выбери группу расписание которой вы хотите увидеть:"
+    msg = "🔘 Выберите группу расписание которой вы хотите увидеть:"
     for g in groups:
         buttons.append(Tg.makeButton(g['name'], f"get_rasp/{g['id']}"))
     if(groups is None or groups == ()):
@@ -278,18 +278,17 @@ def get_rasp(MsgInfo):
             return "⚠ Не удалось получить информацию о группе.", Tg.generateInlineKeyb(empty=True)
         return Tg.editOrSend(MsgInfo, "⚠ Не удалось получить информацию о группе.",
             reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("📝 Мои группы", "mg"), Tg.makeButton("🔙 Расписание", "rasp"))))
+    days = mysql.query("SELECT DISTINCT `date` FROM lessons WHERE `group_id` = %s AND `date` >= %s ORDER BY `date` LIMIT 6", (MsgInfo.callback_data[1][0], date.today().isoformat()), fetchall=True)
+    if(days is None or days == ()):
+        if(MsgInfo.callback_data[0] == None):
+            return "⚠ Похоже, расписания на ближайшие дни нет", Tg.generateInlineKeyb(empty=True)
+        return Tg.editOrSend(MsgInfo, "⚠ Похоже, расписания на ближайшие дни нет",
+                reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🗒️ Меню расписания", "rasp"),
+                            Tg.makeButton("🌐 Расписание на неделю", web_app={"url": f"https://rasp.sstu.ru/rasp/group/{MsgInfo.callback_data[1][0]}"}), max_=1)))
     i = 0; buttons = []; msg = []
-    while len(msg) < 6:
-        if(i > 8):
-            if(len(msg) == 0):
-                if(MsgInfo.callback_data[0] == None):
-                    return "⚠ Похоже, расписания на ближайшие дни нет", Tg.generateInlineKeyb(empty=True)
-                return Tg.editOrSend(MsgInfo, "⚠ Похоже, расписания на ближайшие дни нет",
-                    reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🗒️ Меню расписания", "rasp"))))
-            else:
-                break
+    for day in days:
         day = mysql.query("SELECT `date`, `type`, `name`, `weekday`, `lesson_num`, `time_start`, `time_end` FROM lessons WHERE `group_id` = %s AND `date` = %s ORDER BY `lesson_num`",
-            (group['id'], (date.today()+timedelta(days=i)).isoformat()), fetchall=True)
+            (group['id'], day['date'].isoformat()), fetchall=True)
         i += 1
         if(day is None or day == ()): continue
         les = "\n".join([f"[{l['lesson_num']}] {l['name']} {l['type']}" for l in day])
@@ -301,7 +300,7 @@ def get_rasp(MsgInfo):
         weather = mysql.query("SELECT `temp`,`weather` FROM `weather` WHERE `date` BETWEEN %s AND %s",
             (day['info']['time_start'].strftime('%Y-%m-%d %H:%M:%S'), day['info']['time_end'].strftime('%Y-%m-%d %H:%M:%S')))
         if(weather == None):
-            weather = {"temp": 0, "weather": "Нет данных"}
+            weather = {"temp": None, "weather": "Нет данных"}
         day.update({'weather': weather})
         msg.append(f"""<b>- День: <u>{day['info']['weekday']} {day['info']['date']}</u></b>
 - <b>Кол-во пар</b>: {day['info']['count']}
@@ -324,7 +323,8 @@ def date_rasp(MsgInfo):
         (MsgInfo.callback_data[1][1], MsgInfo.callback_data[1][0]), fetchall=True)
     if(rasp is None or rasp == ()):
         return Tg.editOrSend(MsgInfo, "⚠ Не удалось получить информацию о расписании.",
-            reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("📝 Мои группы", "mg"), Tg.makeButton("🔙 Вернуться", "rasp"))))
+            reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("📝 Мои группы", "mg"), Tg.makeButton("🔙 Вернуться", "rasp")),
+                        Tg.makeRows(Tg.makeButton("🌐 Расписание на неделю", web_app={"url": f"https://rasp.sstu.ru/rasp/group/{MsgInfo.callback_data[1][0]}"}))))
     msg = []
     now = datetime.now()
     for i in range(len(rasp)):
