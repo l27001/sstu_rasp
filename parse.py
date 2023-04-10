@@ -17,10 +17,8 @@ def parse_groups():
         try:
             response = requests.get("https://rasp.sstu.ru/", headers=headers, timeout=5)
             if(response.status_code != 200): raise RuntimeError(f'Unexpected http code for parse_groups - {response.status_code}')
-            if(attempts > 0): print("groups - SUCCESS!")
             break
         except Exception as e:
-            print(f"groups - {e}")
             sleep(1)
             attempts += 1
     page = BeautifulSoup(response.text, "html.parser")
@@ -58,10 +56,10 @@ def parse_rasp(group):
         try:
             response = requests.get(f"https://rasp.sstu.ru/rasp/group/{group}", headers=headers, timeout=5)
             if(response.status_code != 200): raise RuntimeError(f'Unexpected http code for group #{group} - {response.status_code}')
-            if(attempts > 0): print(f"#{group} - SUCCESS!")
+            #if(attempts > 0): print(f"#{group} - SUCCESS!")
             break
         except Exception as e:
-            print(f"#{group} - {e}")
+            #print(f"#{group} - {e}")
             sleep(1)
             attempts += 1
     mysql = methods.Mysql()
