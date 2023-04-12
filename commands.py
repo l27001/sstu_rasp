@@ -290,6 +290,7 @@ def get_rasp(MsgInfo):
         day = mysql.query("SELECT `date`, `type`, `name`, `weekday`, `lesson_num`, `time_start`, `time_end` FROM lessons WHERE `group_id` = %s AND `date` = %s ORDER BY `lesson_num`",
             (group['id'], days[i]['date'].isoformat()), fetchall=True)
         if(day is None or day == ()): continue
+        if(i == 0 and day[-1]['time_end'] < timedelta(hours=datetime.now().hour, minutes=datetime.now().minute)): continue
         les = "\n".join([f"[{l['lesson_num']}] {l['name']} {l['type']}" for l in day])
         day = {'info': {'date': day[0]['date'], 'weekday': day[0]['weekday'], 'count': len(day),
                 'time_start': datetime.strptime(f"{day[0]['date']} {day[0]['time_start']}", "%Y-%m-%d %H:%M:%S"),
