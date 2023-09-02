@@ -1,0 +1,68 @@
+version: '3.9'
+
+volumes:
+  mysqldata:
+  redisdata:
+
+services:
+  mysql:
+    image: mariadb
+    restart: unless-stopped
+    volumes:
+      - mysqldata:/var/lib/mysql
+    environment:
+      MARIADB_RANDOM_ROOT_PASSWORD: True
+      MARIADB_DATABASE: ${DATABASE}
+      MARIADBUSER: ${DBUSER}
+      MARIADBPASSWORDWORD: ${DBPASSWORD}
+    healthcheck:
+      test: "mariadb-admin ping -h localhost -u$$MARIADBUSER -p$$MARIADBPASSWORDWORD"
+      start_period: 3s
+      interval: 2s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: bitnami/redis:latest
+    restart: unless-stopped
+    volumes:
+      - redisdata:/bitnami/redis/data
+    environment:
+      ALLOW_EMPTY_PASSWORD: yes 
+
+  phpmyadmin:
+    image: phpmyadmin
+    restart: unless-stopped
+    depends_on:
+      - mysql
+    ports:
+      - 5091:80
+    environment:
+      PMA_ARBITRARY: 1
+      PMA_HOST: mysql
+      PMA_USER: ${DBUSER}
+      PMA_PASSWORD: ${DBPASSWORD}
+
+  ssturasp:
+    image: ssturasp
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - 5100:5100
+    environment:
+      DATABASE: ${DATABASE}
+      DBUSER: ${DBUSER}
+      DBPASSWORD: ${DBPASSWORD}
+      DBSERVER: mysql
+      TGTOKEN: ${TGTOKEN}
+      WEBHOST: ${WEBHOST}
+      REDISSERVER: redis
+      DROPTABLES: ${DROPTABLES}
+      OWM_API_KEY: ${OWM_API_KEY}
+      PYTHONUNBUFFERED: 1

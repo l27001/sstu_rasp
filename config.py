@@ -1,0 +1,24 @@
+import os
+
+
+JSON_SORT_KEYS = False
+
+DBSERVER = os.environ.get('DBSERVER')
+DBUSER = os.environ.get('DBUSER')
+DBPASSWORD = os.environ.get('DBPASSWORD')
+DATABASE = os.environ.get('DATABASE')
+
+SQLALCHEMY_DATABASE_URI = f"mysql://{DBUSER}:{DBPASSWORD}@{DBSERVER}/{DATABASE}"
+SQLALCHEMY_TRACK_MODIFICATIONS = False
+SQLALCHEMY_POOL_SIZE = 100
+SQLALCHEMY_POOL_RECYCLE = 50
+SQLALCHEMY_POOL_PRE_PING = True
+SQLALCHEMY_ENGINE_OPTIONS = {'pool_size' : 100, 'pool_recycle' : 50, 'pool_pre_ping': True}
+
+TG_TOKEN = os.environ.get('TGTOKEN')
+WEBSERVER_HOST = os.environ.get('WEBHOST')
+URL_PATH = f"/{TG_TOKEN}/"
+
+REDISSERVER = os.environ.get('REDISSERVER')
+
+OPENWEATHERMAP_API_KEY = os.environ.get('OWM_API_KEY')

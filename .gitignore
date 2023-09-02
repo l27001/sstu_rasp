@@ -1,0 +1,6 @@
+__pycache__
+venv
+.env.*
+run_docker*.sh
+.state-save
+.vscode
