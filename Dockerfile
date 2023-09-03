@@ -10,6 +10,4 @@ COPY *.py .
 COPY run.sh .
 RUN chmod +x run.sh
 
-STOPSIGNAL SIGINT
-
 CMD [ "./run.sh" ]

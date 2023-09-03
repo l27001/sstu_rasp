@@ -3,13 +3,12 @@ import telebot
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from telebot.storage import StatePickleStorage, StateRedisStorage
-from telebot.custom_filters import StateFilter  
+from telebot.custom_filters import StateFilter, TextMatchFilter
+
+from app.telebot_misc.callback_filter import CallbackDataFilter
 
 
 app = Flask(__name__, static_folder="static/")
-gunicorn_error_logger = logging.getLogger('gunicorn.error')
-app.logger.handlers = gunicorn_error_logger.handlers
-app.logger.setLevel(logging.DEBUG)
 app.config.from_object('config')
 
 
@@ -32,6 +31,8 @@ bot = telebot.TeleBot(app.config['TG_TOKEN'],
                       num_threads=1,
                       allow_sending_without_reply=True)
 bot.add_custom_filter(StateFilter(bot))
+bot.add_custom_filter(TextMatchFilter())
+bot.add_custom_filter(CallbackDataFilter())
 
 
 db = SQLAlchemy()
