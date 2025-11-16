@@ -30,17 +30,19 @@ DROP TABLE IF EXISTS `groups`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `groups` (
-  `id` int(10) unsigned NOT NULL,
-  `name` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `form` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `type` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `group_start` varchar(8) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `sstu_id` int(10) unsigned DEFAULT NULL,
+  `name` varchar(64) NOT NULL,
+  `form` varchar(64) NOT NULL,
+  `type` varchar(32) NOT NULL,
+  `group_start` varchar(8) NOT NULL,
   `course` int(11) NOT NULL,
-  `institute` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `institute` varchar(64) NOT NULL,
   `last_appearance` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`,`name`) USING BTREE,
-  UNIQUE KEY `name` (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`),
+  KEY `sstu_id` (`sstu_id`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=1205 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 
@@ -50,12 +52,12 @@ DROP TABLE IF EXISTS `lessons`;
 CREATE TABLE `lessons` (
   `date` date NOT NULL,
   `group_id` int(10) unsigned NOT NULL,
-  `teacher` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `weekday` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `teacher` varchar(128) NOT NULL,
+  `weekday` varchar(16) NOT NULL,
   `lesson_num` smallint(6) NOT NULL,
-  `name` varchar(256) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `type` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `room` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(256) NOT NULL,
+  `type` varchar(16) NOT NULL,
+  `room` varchar(64) NOT NULL,
   `time_start` time NOT NULL,
   `time_end` time NOT NULL,
   PRIMARY KEY (`date`,`group_id`,`lesson_num`),
@@ -70,7 +72,7 @@ DROP TABLE IF EXISTS `users`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `users` (
   `id` bigint(20) NOT NULL,
-  `state` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `state` varchar(64) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -82,9 +84,9 @@ DROP TABLE IF EXISTS `weather`;
 CREATE TABLE `weather` (
   `date` datetime NOT NULL,
   `temp` int(11) NOT NULL,
-  `weather_main` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `weather` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `weather_icon` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `weather_main` varchar(32) NOT NULL,
+  `weather` varchar(32) NOT NULL,
+  `weather_icon` varchar(10) NOT NULL,
   PRIMARY KEY (`date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
