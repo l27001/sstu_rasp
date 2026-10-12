@@ -73,6 +73,7 @@ api.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), na
 
 
 @api.get("/", include_in_schema=False)
+@api.get("/my", include_in_schema=False)
 def index():
     return FileResponse(os.path.join(BASE_DIR, "templates", "index.html"))
 

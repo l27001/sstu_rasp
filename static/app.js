@@ -3,6 +3,7 @@
 
     const tg = window.Telegram?.WebApp;
     const pageSize = 30;
+    const initialView = window.location.pathname.replace(/\/+$/, "") === "/my" ? "my" : "catalog";
     const state = {groups: [], filtered: [], visible: pageSize, selected: new Set(), toastTimer: null};
     const $ = selector => document.querySelector(selector);
     const $$ = selector => [...document.querySelectorAll(selector)];
@@ -68,7 +69,7 @@
             state.groups = data.groups || [];
             fillFilters();
             applyFilters();
-            if(tg?.initData) loadMyGroups(false);
+            if(tg?.initData && initialView !== "my") loadMyGroups(false);
         } catch(error) {
             elements.catalogError.hidden = false;
             elements.count.textContent = "Ошибка загрузки";
@@ -392,5 +393,6 @@
     document.addEventListener("keydown", event => { if(event.key === "Escape" && !elements.overlay.hidden) closeSchedule(); });
 
     setupTelegram();
+    if(initialView !== "catalog") showView(initialView);
     loadGroups();
 })();
