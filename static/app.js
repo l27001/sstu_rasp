@@ -231,8 +231,10 @@
 
     function confirmAction(message) {
         return new Promise(resolve => {
-            const overlay = node("div", "confirm-overlay");
+            const overlay = node("div", "overlay confirm-overlay");
             const dialog = node("div", "confirm-dialog");
+            overlay.style.cssText = "position:fixed;z-index:40;inset:0;display:grid;place-items:center;padding:20px;overflow:auto;background:rgba(10,17,30,.64)";
+            dialog.style.cssText = "width:min(390px,100%);padding:24px;border-radius:18px;background:#fff;box-shadow:0 24px 70px rgba(0,0,0,.3)";
             dialog.append(node("h3", "", "Подтвердите удаление"), node("p", "", message));
             const actions = node("div", "confirm-actions");
             const cancel = node("button", "button button--secondary", "Отмена");
@@ -241,6 +243,7 @@
             confirm.type = "button";
             const close = result => {
                 overlay.remove();
+                document.body.classList.remove("no-scroll");
                 resolve(result);
             };
             cancel.addEventListener("click", () => close(false));
@@ -252,6 +255,7 @@
             dialog.append(actions);
             overlay.append(dialog);
             document.body.append(overlay);
+            document.body.classList.add("no-scroll");
         });
     }
 

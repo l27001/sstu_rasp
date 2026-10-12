@@ -354,12 +354,6 @@ def subscribe(response: Response, sub: Subscribe, database=None):
         "INSERT INTO `group_subs` (`user_id`, `group_id`) VALUES (%s, %s)",
         (user_id, group['id'])
     )
-    Tg = methods.Tg()
-    Tg.sendMessage(user_id, f"🟢 Группа {group['name']} была отмечена как ваша!",
-        reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("📝 Мои группы", "mg"),
-            Tg.makeButton("❗ Подписаться на рассылку", f"toggle_sub/{group['id']}"),
-            Tg.makeButton("⁉️ Что за рассылка?", "about"),
-            Tg.makeButton("🗓️ Расписание группы", f"get_rasp/{group['id']}"), max_=1)))
     response.status_code = 201
     return {"status": "success", "message": f"Группа {group['name']} добавлена"}
 
