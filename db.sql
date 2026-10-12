@@ -57,7 +57,7 @@ CREATE TABLE `lessons` (
   `lesson_num` smallint(6) NOT NULL,
   `name` varchar(256) NOT NULL,
   `type` varchar(16) NOT NULL,
-  `room` varchar(64) NOT NULL,
+  `room` varchar(512) NOT NULL,
   `time_start` time NOT NULL,
   `time_end` time NOT NULL,
   PRIMARY KEY (`date`,`group_id`,`lesson_num`),
@@ -99,4 +99,3 @@ CREATE TABLE `weather` (
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
-

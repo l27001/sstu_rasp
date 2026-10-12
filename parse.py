@@ -185,10 +185,8 @@ if(__name__ == "__main__"):
     import sys
     if(len(sys.argv) == 1):
         groups = parse_groups()
-        p = Pool()
-        p.map(parse_rasp, groups)
-        p.close()
-        p.join()
+        with Pool() as p:
+            p.map(parse_rasp, groups)
     elif(sys.argv[1] == "weather"):
         parse_weather()
     elif(sys.argv[1] == "groups"):
