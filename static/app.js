@@ -218,7 +218,7 @@
     }
 
     async function removeGroup(group, card) {
-        if(!window.confirm(`Удалить группу ${group.name} из ваших групп?`)) return;
+        if(!(await confirmAction(`Удалить группу ${group.name} из ваших групп?`))) return;
         try {
             const data = await api("group/remove", {method: "POST", body: authBody({id: Number(group.id)})});
             state.selected.delete(Number(group.id));
@@ -227,6 +227,32 @@
             renderCatalog();
             showToast(data.message);
         } catch(error) { showToast(error.message, true); }
+    }
+
+    function confirmAction(message) {
+        return new Promise(resolve => {
+            const overlay = node("div", "confirm-overlay");
+            const dialog = node("div", "confirm-dialog");
+            dialog.append(node("h3", "", "Подтвердите удаление"), node("p", "", message));
+            const actions = node("div", "confirm-actions");
+            const cancel = node("button", "button button--secondary", "Отмена");
+            const confirm = node("button", "button button--danger", "Удалить");
+            cancel.type = "button";
+            confirm.type = "button";
+            const close = result => {
+                overlay.remove();
+                resolve(result);
+            };
+            cancel.addEventListener("click", () => close(false));
+            confirm.addEventListener("click", () => close(true));
+            overlay.addEventListener("click", event => {
+                if(event.target === overlay) close(false);
+            });
+            actions.append(cancel, confirm);
+            dialog.append(actions);
+            overlay.append(dialog);
+            document.body.append(overlay);
+        });
     }
 
     async function openGroupSchedule(groupId) {

@@ -117,6 +117,11 @@ button { cursor:pointer; }
 .toast { position:fixed; z-index:30; right:20px; bottom:calc(20px + env(safe-area-inset-bottom)); max-width:min(390px,calc(100% - 40px)); padding:13px 17px; border-radius:12px; color:#fff; background:#172033; box-shadow:var(--shadow); opacity:0; transform:translateY(16px); pointer-events:none; transition:.2s ease; }
 .toast.is-visible { opacity:1; transform:translateY(0); }
 .toast.is-error { background:#a62f3c; }
+.confirm-overlay { position:fixed; z-index:40; inset:0; display:grid; place-items:center; padding:20px; background:rgba(10,17,30,.64); backdrop-filter:blur(4px); }
+.confirm-dialog { width:min(390px,100%); padding:24px; border-radius:18px; background:#fff; box-shadow:0 24px 70px rgba(0,0,0,.3); }
+.confirm-dialog h3 { margin:0 0 8px; }
+.confirm-dialog p { margin:0; color:var(--muted); line-height:1.5; }
+.confirm-actions { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:22px; }
 [hidden] { display:none!important; }
 @keyframes spin { to { transform:rotate(360deg); } }
 @media(max-width:760px) {

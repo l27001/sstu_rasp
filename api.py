@@ -185,10 +185,20 @@ def remove_group(response: Response, body: GroupAction, database=None):
     user_id = authenticated_user(response, body.auth, database)
     if(user_id is None):
         return {"status": "fail", "message": "Необходима авторизация Telegram"}
+    group = database.query("SELECT `id` FROM `groups` WHERE `sstu_id` = %s", (body.id, ))
+    if(group is None):
+        response.status_code = 404
+        return {"status": "fail", "message": "Группа не найдена"}
+    subscription = database.query(
+        "SELECT `user_id` FROM `group_subs` WHERE `user_id` = %s AND `group_id` = %s",
+        (user_id, group['id'])
+    )
+    if(subscription is None):
+        response.status_code = 404
+        return {"status": "fail", "message": "Группа уже удалена"}
     database.query(
-        "DELETE gs FROM `group_subs` gs INNER JOIN `groups` g ON g.`id` = gs.`group_id` "
-        "WHERE gs.`user_id` = %s AND g.`sstu_id` = %s",
-        (user_id, body.id)
+        "DELETE FROM `group_subs` WHERE `user_id` = %s AND `group_id` = %s",
+        (user_id, group['id'])
     )
     return {"status": "success", "message": "Группа удалена"}
 
