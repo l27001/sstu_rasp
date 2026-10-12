@@ -315,8 +315,18 @@
                 content.append(node("h4", "", lesson.name), node("p", "lesson__type", `${lesson.number} пара · ${lesson.type || "Тип не указан"}`));
                 const tags = node("div", "lesson__tags");
                 if(showGroup && lesson.group) tags.append(node("span", "", `🎓 ${lesson.group}`));
-                if(lesson.room) tags.append(node("span", "", `🚪 ${lesson.room}`));
-                if(lesson.teacher && lesson.teacher !== "Нет данных") tags.append(node("span", "", `👨‍🏫 ${lesson.teacher}`));
+                if(lesson.room && lesson.room_token) {
+                    const room = node("button", "lesson-link", `🚪 ${lesson.room}`);
+                    room.type = "button";
+                    room.addEventListener("click", () => openEntitySchedule("room", {value: lesson.room, token: lesson.room_token}));
+                    tags.append(room);
+                }
+                if(lesson.teacher && lesson.teacher !== "Нет данных" && lesson.teacher_token) {
+                    const teacher = node("button", "lesson-link", `👨‍🏫 ${lesson.teacher}`);
+                    teacher.type = "button";
+                    teacher.addEventListener("click", () => openEntitySchedule("teacher", {value: lesson.teacher, token: lesson.teacher_token}));
+                    tags.append(teacher);
+                }
                 content.append(tags);
                 item.append(time, content);
                 lessons.append(item);

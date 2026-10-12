@@ -131,7 +131,9 @@ def serialize_schedule(rows):
             "name": row['name'],
             "type": row['type'],
             "room": row['room'],
+            "room_token": row.get('room_token'),
             "teacher": row['teacher'],
+            "teacher_token": row.get('teacher_token'),
             "group": row.get('group_name')
         })
     return days
@@ -227,7 +229,8 @@ def group_schedule(group_id: int, response: Response, database=None):
         response.status_code = 404
         return {"status": "fail", "message": "Группа не найдена"}
     rows = database.query(
-        "SELECT `date`, `weekday`, `lesson_num`, `time_start`, `time_end`, `name`, `type`, `room`, `teacher` "
+        "SELECT `date`, `weekday`, `lesson_num`, `time_start`, `time_end`, `name`, `type`, `room`, `teacher`, "
+        "MD5(LOWER(`room`)) AS `room_token`, MD5(LOWER(`teacher`)) AS `teacher_token` "
         "FROM `lessons` WHERE `group_id` = %s AND `date` >= %s ORDER BY `date`, `lesson_num`",
         (group['id'], date.today().isoformat()), fetchall=True
     )
@@ -279,7 +282,8 @@ def entity_schedule(kind: str, token: str, response: Response, database=None):
         return {"status": "fail", "message": "Актуальное расписание не найдено"}
     rows = database.query(
         f"SELECT l.`date`, l.`weekday`, l.`lesson_num`, l.`time_start`, l.`time_end`, l.`name`, "
-        f"l.`type`, l.`room`, l.`teacher`, g.`name` AS `group_name` FROM `lessons` l "
+        f"l.`type`, l.`room`, l.`teacher`, MD5(LOWER(l.`room`)) AS `room_token`, "
+        f"MD5(LOWER(l.`teacher`)) AS `teacher_token`, g.`name` AS `group_name` FROM `lessons` l "
         f"INNER JOIN `groups` g ON g.`id` = l.`group_id` "
         f"WHERE MD5(LOWER(l.`{field}`)) = %s AND l.`date` >= %s "
         f"ORDER BY l.`date`, l.`lesson_num`, g.`name`",
