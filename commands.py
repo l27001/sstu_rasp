@@ -114,7 +114,8 @@ def menu(logger, mysql, Tg, MsgInfo):
     menu_text = """👋 <b>Привет, я бот отслеживающий расписание СГТУ!</b>
 Бота написал @l27001, соотвественно со всеми вопросами/багами/предложениями к нему.
 \nДля просмотра расписания своей группы сначала необходимо привязать группу к аккаунту ТГ. Сделать это можно с помощью кнопок ниже."""
-    menu_keyb = Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🔍 Найти группу", "start_find"),
+    menu_keyb = Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🌟 Новый интерфейс", web_app={"url": "https://ssturasp.l27001.net/my"})),
+        Tg.makeRows(Tg.makeButton("🔍 Найти группу", "start_find"),
         Tg.makeButton("🔎 Аудитории и преподаватели", "schedule_search"),
         Tg.makeButton("❓ Ничего не понимаю", "about"),
         Tg.makeButton("📝 Мои группы", "mg"),
