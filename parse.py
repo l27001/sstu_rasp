@@ -63,7 +63,8 @@ def parse_groups():
         mysql.query("DELETE FROM `groups` WHERE `last_appearance` <= %s", (del_date, ))
         mysql.query("DELETE FROM `lessons` WHERE `date` <= %s", (del_date, ))
         mysql.commit()
-    finally: mysql.close()
+    finally:
+        mysql.close()
     return groups
 
 def parse_rasp(group):
@@ -78,14 +79,14 @@ def parse_rasp(group):
         try:
             response = requests.get(f"https://rasp.sstu.ru/rasp/group/{sstugroup['sstu_id']}", headers=headers, timeout=5)
             if(response.status_code != 200): raise RuntimeError(f'Unexpected http code for group #{group} - {response.status_code}')
-            #if(attempts > 0): print(f"#{group} - SUCCESS!")
             break
         except Exception as e:
-            #print(f"#{group} - {e}")
             sleep(1)
             attempts += 1
     try:
         page = BeautifulSoup(response.text, "html.parser")
+        if(page is None):
+            return
         days = page.findAll("div", class_="day")
         for day in days:
             if("day-color-red" in day.get("class") or "day-color-blue" in day.get("class") or "day-header-empty" in day.get("class")): continue
@@ -116,7 +117,8 @@ def parse_rasp(group):
                         (cur_date, lesson_day[0], lesson_hours[0], lesson_hours[1], lesson_teacher, lesson_num, lesson_name, lesson_type, lesson_room, group))
                 lesson_num += 1
         mysql.commit()
-    finally: mysql.close()
+    finally:
+        mysql.close()
 
 def parse_weather():
     if(openweathermap_key == None):
@@ -134,7 +136,8 @@ def parse_weather():
         del_date = (date.today() - timedelta(days=2)).isoformat()
         mysql.query("DELETE FROM `weather` WHERE `date` <= %s", (del_date, ))
         mysql.commit()
-    finally: mysql.close()
+    finally:
+        mysql.close()
 
 def notify_tomorrow():
     mysql = methods.Mysql()
@@ -175,34 +178,8 @@ def notify_tomorrow():
                 if("error_code" in res and res["error_code"] == 403):
                     mysql.query("UPDATE `group_subs` SET `subscribe` = 0 WHERE `user_id` = %s", (sub['user_id'], ))
                 sleep(0.04)
-    finally: mysql.close()
-
-def notify_new_rasp(groups):
-    mysql = methods.Mysql()
-    try:
-        Tg = methods.Tg()
-        # to_notify = {}
-        # for group_id in groups:
-        #     group = mysql.query("SELECT * FROM groups WHERE id = %s", (group_id, ))
-        #     subscribers = mysql.query("SELECT * FROM `group_subs` WHERE `group_id` = %s", (group['id'], ), fetchall=True)
-        #     for sub in subscribers:
-        #         if(sub['user_id'] in to_notify):
-        #             to_notify[sub['user_id']].append(group['name'])
-        #         else:
-        #             to_notify.update({sub['user_id']: [group['name']]})
-        users = mysql.query("SELECT * FROM users", fetchall=True)
-        text = "🔔 <b>На <a href=\"https://rasp.sstu.ru\">сайте СГТУ</a> выложили расписание!</b>"
-        keyboard = Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🔍 Найти группу", "start_find"),
-                                        Tg.makeButton("📝 Мои группы", "mg"), Tg.makeButton("🗒️ Расписание", "rasp"), max_=1), home=True)
-        for user in users:
-            # if(user['id'] != 731264169):
-            #     continue
-            # if(user['id'] in to_notify):
-            #     groups = '\n'.join(to_notify[user['id']])
-            #     text += f"\nВ том числе для ваших групп:\n<i>{groups}</i>"
-            Tg.sendMessage(user['id'], text, reply_markup=keyboard)
-            sleep(0.05)
-    finally: mysql.close()
+    finally:
+        mysql.close()
 
 if(__name__ == "__main__"):
     import sys
@@ -223,9 +200,5 @@ if(__name__ == "__main__"):
             parse_rasp(int(sys.argv[2]))
     elif(sys.argv[1] == "notify"):
         notify_tomorrow()
-    elif(sys.argv[1] == "notify_new"):
-        if(len(sys.argv) < 2 or sys.argv[2].isdigit() == False):
-            print("./parse.py notify_new <IDs>")
-        notify_new_rasp(list(map(int, sys.argv[2:])))
     else:
         print("./parse.py [weather|groups|group|notify]")
