@@ -129,6 +129,6 @@ def subscribe(response: Response, sub: Subscribe, database=None):
 if(__name__ == "__main__"):
     uvicorn.run(
         api,
-        host="::",
+        host="0.0.0.0",
         port=8124
     )
