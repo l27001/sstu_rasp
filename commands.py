@@ -1,6 +1,7 @@
 from time import sleep
 from methods import Mysql, sendErrorMessage
 from datetime import date, timedelta, datetime
+from html import escape
 
 class MsgInfoClass(): pass
 
@@ -20,7 +21,8 @@ def execute_command(logger, Tg, data):
         MsgInfo.is_chat = MsgInfo.from_chat < 0
         MsgInfo.text = data['text'].split()
         MsgInfo.msg_id = data['message_id']
-        MsgInfo.user_info = mysql.getUserInfo(MsgInfo.from_user)
+        # Состояния сохраняются по идентификатору чата (в личке он равен user id).
+        MsgInfo.user_info = mysql.getUserInfo(MsgInfo.from_chat)
         MsgInfo.callback_data = None
         if(MsgInfo.is_chat == True and "reply_to_message" not in data):
             MsgInfo.text[0] = MsgInfo.text[0].split("@")
@@ -46,7 +48,7 @@ def execute_command(logger, Tg, data):
         if(cmds.get(cmd) == None):
             mysql.close()
             if(MsgInfo.is_chat == False):
-                Tg.sendMessage(MsgInfo.from_chat, "👎🏻 Неизвестная команда", reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🔍 Найти группу", "start_find"), Tg.makeButton("📝 Мои группы", "mg"))), reply_to_message_id=MsgInfo.msg_id)
+                Tg.sendMessage(MsgInfo.from_chat, "👎🏻 Неизвестная команда", reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🔍 Найти группу", "start_find"), Tg.makeButton("🔎 Найти аудиторию/преподавателя", "schedule_search"), Tg.makeButton("📝 Мои группы", "mg"), max_=1)), reply_to_message_id=MsgInfo.msg_id)
             return None
         try:
             cmds[cmd](logger, mysql, Tg, MsgInfo)
@@ -114,6 +116,7 @@ def menu(logger, mysql, Tg, MsgInfo):
 \nДля просмотра расписания своей группы сначала необходимо привязать группу к аккаунту ТГ. Сделать это можно с помощью кнопок ниже.
 \n<s>Этот текст всё-равно никто не читает :(</s>"""
     menu_keyb = Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🔍 Найти группу", "start_find"),
+        Tg.makeButton("🔎 Аудитории и преподаватели", "schedule_search"),
         Tg.makeButton("❓ Ничего не понимаю", "about"),
         Tg.makeButton("📝 Мои группы", "mg"),
         Tg.makeButton("🗒️ Расписание", "rasp"), max_=2), home=False)
@@ -135,6 +138,122 @@ def start_find(logger, mysql, Tg, MsgInfo):
     rows += Tg.makeRows(Tg.makeButton("🔍 Поиск по параметрам", "pre_find_abbr"))
     Tg.editOrSend(MsgInfo, "🤔 Как будем искать?:",
         reply_markup=Tg.generateInlineKeyb(rows))
+
+def schedule_search(logger, mysql, Tg, MsgInfo):
+    mysql.setUserState(MsgInfo.from_chat, None)
+    rows = Tg.makeRows(
+        Tg.makeButton("🚪 По аудитории", "search_room"),
+        Tg.makeButton("👨‍🏫 По преподавателю", "search_teacher"),
+        max_=1
+    )
+    Tg.editOrSend(MsgInfo, "🔎 Что будем искать?",
+        reply_markup=Tg.generateInlineKeyb(rows))
+
+def prompt_room_search(logger, mysql, Tg, MsgInfo):
+    mysql.setUserState(MsgInfo.from_chat, "search_room")
+    Tg.editOrSend(MsgInfo, "🚪 Введите номер или часть названия аудитории.\nНапример: <code>1/202</code>",
+        reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🔙 К выбору поиска", "schedule_search"))))
+
+def prompt_teacher_search(logger, mysql, Tg, MsgInfo):
+    mysql.setUserState(MsgInfo.from_chat, "search_teacher")
+    Tg.editOrSend(MsgInfo, "👨‍🏫 Введите фамилию или часть ФИО преподавателя.",
+        reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🔙 К выбору поиска", "schedule_search"))))
+
+def search_lessons(logger, mysql, Tg, MsgInfo, field, title, callback):
+    query = " ".join(MsgInfo.text).strip()
+    if(len(query) < 2):
+        return Tg.editOrSend(MsgInfo, "⚠ Введите не менее двух символов для поиска.",
+            reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🔙 К выбору поиска", "schedule_search"))))
+
+    # field и callback передаются только из обработчиков ниже, не из пользовательского ввода.
+    results = mysql.query(
+        f"SELECT `{field}` AS `value`, MD5(LOWER(`{field}`)) AS `token`, MIN(`date`) AS `next_date` "
+        f"FROM `lessons` WHERE `date` >= %s AND `{field}` LIKE %s AND `{field}` NOT IN ('', 'Нет данных') "
+        f"GROUP BY `{field}` ORDER BY `next_date`, `{field}` LIMIT 20",
+        (date.today().isoformat(), "%"+query+"%"), fetchall=True
+    )
+    if(not results):
+        return Tg.editOrSend(MsgInfo, f"⚠ {title} не найдены. Попробуйте изменить запрос.",
+            reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🔙 К выбору поиска", "schedule_search"))))
+
+    buttons = [Tg.makeButton(i['value'][:60], f"{callback}/{i['token']}") for i in results]
+    text = f"🔎 Найдено вариантов: {len(results)}. Выберите нужный:"
+    Tg.editOrSend(MsgInfo, text, reply_markup=Tg.generateInlineKeyb(
+        Tg.makeRows(buttons, max_=1),
+        Tg.makeRows(Tg.makeButton("🔙 Другой тип поиска", "schedule_search"))
+    ))
+
+def search_rooms(logger, mysql, Tg, MsgInfo):
+    return search_lessons(logger, mysql, Tg, MsgInfo, "room", "Аудитории", "room_rasp")
+
+def search_teachers(logger, mysql, Tg, MsgInfo):
+    return search_lessons(logger, mysql, Tg, MsgInfo, "teacher", "Преподаватели", "teacher_rasp")
+
+def entity_rasp(logger, mysql, Tg, MsgInfo, field, icon, search_callback):
+    token = MsgInfo.callback_data[1][0]
+    try:
+        offset = max(0, int(MsgInfo.callback_data[1][1]))
+    except (IndexError, ValueError):
+        offset = 0
+
+    entity = mysql.query(
+        f"SELECT `{field}` AS `value` FROM `lessons` WHERE MD5(LOWER(`{field}`)) = %s AND `date` >= %s LIMIT 1",
+        (token, date.today().isoformat())
+    )
+    if(not entity):
+        return Tg.editOrSend(MsgInfo, "⚠ Актуальное расписание для выбранного варианта не найдено.",
+            reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🔎 Новый поиск", search_callback))))
+
+    days = mysql.query(
+        f"SELECT DISTINCT `date`, `weekday` FROM `lessons` WHERE MD5(LOWER(`{field}`)) = %s AND `date` >= %s "
+        "ORDER BY `date` LIMIT %s,1",
+        (token, date.today().isoformat(), offset), fetchall=True
+    )
+    if(not days):
+        return Tg.editOrSend(MsgInfo, "⚠ Ближайших занятий не найдено.",
+            reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🔎 Новый поиск", search_callback))))
+
+    selected_day = days[0]
+    lessons = mysql.query(
+        f"SELECT l.`time_start`, l.`time_end`, l.`name`, l.`type`, l.`room`, l.`teacher`, g.`name` AS `group_name` "
+        f"FROM `lessons` l INNER JOIN `groups` g ON g.`id` = l.`group_id` "
+        f"WHERE MD5(LOWER(l.`{field}`)) = %s AND l.`date` = %s ORDER BY l.`time_start`, g.`name`",
+        (token, selected_day['date'].isoformat()), fetchall=True
+    )
+    lesson_text = []
+    for lesson in lessons:
+        details = [
+            f"<b>{lesson['time_start'].strftime('%H:%M')}–{lesson['time_end'].strftime('%H:%M')}</b> — {escape(str(lesson['name']))} {escape(str(lesson['type']))}",
+            f"Группа: {escape(str(lesson['group_name']))}"
+        ]
+        if(field != "room"):
+            details.append(f"Аудитория: {escape(str(lesson['room']))}")
+        if(field != "teacher"):
+            details.append(f"Преподаватель: {escape(str(lesson['teacher']))}")
+        lesson_text.append("\n".join(details))
+
+    has_next = mysql.query(
+        f"SELECT 1 FROM `lessons` WHERE MD5(LOWER(`{field}`)) = %s AND `date` > %s LIMIT 1",
+        (token, selected_day['date'].isoformat())
+    ) is not None
+    navigation = []
+    if(offset > 0):
+        navigation.append(Tg.makeButton("⬅️ Предыдущий день", f"{MsgInfo.callback_data[0]}/{token},{offset-1}"))
+    if(has_next):
+        navigation.append(Tg.makeButton("➡️ Следующий день", f"{MsgInfo.callback_data[0]}/{token},{offset+1}"))
+
+    text = (f"{icon} <b>{escape(str(entity['value']))}</b>\n"
+        f"📆 {selected_day['date'].strftime('%d.%m.%Y')} ({escape(str(selected_day['weekday']))})\n"
+        "---------------------\n" + "\n---------------------\n".join(lesson_text))
+    buttons = Tg.makeRows(navigation, max_=2)
+    buttons += Tg.makeRows(Tg.makeButton("🔎 Новый поиск", search_callback))
+    Tg.editOrSend(MsgInfo, text, reply_markup=Tg.generateInlineKeyb(buttons))
+
+def room_rasp(logger, mysql, Tg, MsgInfo):
+    return entity_rasp(logger, mysql, Tg, MsgInfo, "room", "🚪", "search_room")
+
+def teacher_rasp(logger, mysql, Tg, MsgInfo):
+    return entity_rasp(logger, mysql, Tg, MsgInfo, "teacher", "👨‍🏫", "search_teacher")
 
 def info(logger, mysql, Tg, MsgInfo):
     txt = f"ℹ️ Информация\nID: {MsgInfo.from_user}\nЧат: {MsgInfo.is_chat}/{MsgInfo.from_chat}"
@@ -391,6 +510,9 @@ cmds = {'/start':menu,
         '/menu':menu,
         '/info':info,
         '/find':start_find,
+        '/search':schedule_search,
+        '/room':prompt_room_search,
+        '/teacher':prompt_teacher_search,
         '/groups':my_groups,
         '/rasp':rasp,
         '/stats':stats
@@ -399,6 +521,11 @@ cmds = {'/start':menu,
 ### Список inline действий
 inlines = {
         'start_find':start_find,
+        'schedule_search':schedule_search,
+        'search_room':prompt_room_search,
+        'search_teacher':prompt_teacher_search,
+        'room_rasp':room_rasp,
+        'teacher_rasp':teacher_rasp,
         'clear_state':menu,
         'about':about,
         'pre_find_abbr':pre_find_abbr,
@@ -416,5 +543,7 @@ inlines = {
 
 ### Список состояний
 states = {
-        'sa':select_abbr_name
+        'sa':select_abbr_name,
+        'search_room':search_rooms,
+        'search_teacher':search_teachers
 }
