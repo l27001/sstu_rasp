@@ -4,6 +4,7 @@
     const tg = window.Telegram?.WebApp;
     const pageSize = 30;
     const initialView = window.location.pathname.replace(/\/+$/, "") === "/my" ? "my" : "catalog";
+    const initialGroup = window.location.pathname.match(/^\/group\/(\d+)\/?$/)?.[1];
     const state = {groups: [], filtered: [], visible: pageSize, selected: new Set(), toastTimer: null};
     const $ = selector => document.querySelector(selector);
     const $$ = selector => [...document.querySelectorAll(selector)];
@@ -405,4 +406,5 @@
     setupTelegram();
     if(initialView !== "catalog") showView(initialView);
     loadGroups();
+    if(initialGroup) openGroupSchedule(initialGroup);
 })();

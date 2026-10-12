@@ -171,6 +171,7 @@ def notify_tomorrow():
 <b>Пары</b>:
 <i>{les}</i>"""
             keyb = Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🗒️ Подробнее", f"date_rasp/{group['id']},{lessons[0]['date']}"),
+                Tg.makeButton("🌐 Расписание на неделю", web_app={"url": f"https://ssturasp.l27001.net/group/{group['sstu_id']}"}),
                 Tg.makeButton("❗ Отписаться от рассылки", f"toggle_sub/{group['id']}"), max_=2))
             for sub in subscribers:
                 res = Tg.sendMessage(sub['user_id'], msg, reply_markup=keyb)

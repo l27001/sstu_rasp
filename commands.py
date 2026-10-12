@@ -405,7 +405,7 @@ def get_rasp(logger, mysql, Tg, MsgInfo):
         return Tg.editOrSend(MsgInfo, f"⚠ Похоже, расписания на ближайшие дни для группы <b>{group['name']}</b> нет\n\n<i>Акутально на {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}</i>",
                 reply_markup=Tg.generateInlineKeyb(Tg.makeRows(Tg.makeButton("🔄 Обновить", MsgInfo.callback_data[0] + "/" + ','.join(MsgInfo.callback_data[1])),
                             Tg.makeButton("🗒️ Меню расписания", "rasp"),
-                            Tg.makeButton("🌐 Расписание на неделю", web_app={"url": f"https://rasp.sstu.ru/rasp/group/{group['sstu_id']}"}), max_=1)))
+                            Tg.makeButton("🌐 Расписание на неделю", web_app={"url": f"https://ssturasp.l27001.net/group/{group['sstu_id']}"}), max_=1)))
     prev_available = offset > 0
     next_available = bool(mysql.query("SELECT DISTINCT `date` FROM lessons WHERE `group_id` = %s AND `date` > %s ORDER BY `date` LIMIT 1", (MsgInfo.callback_data[1][0], days[-1]['date'])))
     buttons = []; msg = []
@@ -451,7 +451,7 @@ def get_rasp(logger, mysql, Tg, MsgInfo):
     if(mysql.query("SELECT * FROM `group_subs` WHERE `user_id` = %s AND `group_id` = %s AND `subscribe` = 0", (MsgInfo.from_user, group['id'])) is not None):
         msg += "\n<b>Вы не подписаны на рассылку этой группы!</b>"
         buttons += Tg.makeRows(Tg.makeButton("❗ Подписаться на рассылку", f"toggle_sub/{group['id']}"))
-    buttons += Tg.makeRows(Tg.makeButton("🌐 Расписание на неделю", web_app={"url": f"https://rasp.sstu.ru/rasp/group/{group['sstu_id']}"})) + Tg.makeRows(Tg.makeButton("📙 Группа", f"chk_grp/{group['id']}"), Tg.makeButton("🗒️ Группы", "rasp"), Tg.makeButton("🏠 Меню", "clear_state"))
+    buttons += Tg.makeRows(Tg.makeButton("🌐 Расписание на неделю", web_app={"url": f"https://ssturasp.l27001.net/group/{group['sstu_id']}"})) + Tg.makeRows(Tg.makeButton("📙 Группа", f"chk_grp/{group['id']}"), Tg.makeButton("🗒️ Группы", "rasp"), Tg.makeButton("🏠 Меню", "clear_state"))
     if(MsgInfo.callback_data[0] == None):
         return msg, Tg.generateInlineKeyb(buttons)
     Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(buttons, home=False))
@@ -490,7 +490,7 @@ def date_rasp(logger, mysql, Tg, MsgInfo):
     if(next_day):
         next_prev_days.append(Tg.makeButton(f"➡️ {next_day['date'].strftime('%d.%m')} ({next_day['weekday']})", f"date_rasp/{MsgInfo.callback_data[1][0]},{next_day['date'].strftime('%Y-%m-%d')}"))
     buttons += Tg.makeRows(next_prev_days)
-    buttons += Tg.makeRows(Tg.makeButton("🌐 Расписание на неделю", web_app={"url": f"https://rasp.sstu.ru/rasp/group/{group['sstu_id']}"}))
+    buttons += Tg.makeRows(Tg.makeButton("🌐 Расписание на неделю", web_app={"url": f"https://ssturasp.l27001.net/group/{group['sstu_id']}"}))
     Tg.editOrSend(MsgInfo, msg, reply_markup=Tg.generateInlineKeyb(buttons))
 
 def stats(logger, mysql, Tg, MsgInfo):

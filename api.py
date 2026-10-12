@@ -78,6 +78,11 @@ def index():
     return FileResponse(os.path.join(BASE_DIR, "templates", "index.html"))
 
 
+@api.get("/group/{group_id}", include_in_schema=False)
+def group_page(group_id: int):
+    return FileResponse(os.path.join(BASE_DIR, "templates", "index.html"))
+
+
 @api.get("/groups")
 @api.get("/api/groups", include_in_schema=False)
 @database
