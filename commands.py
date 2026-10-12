@@ -189,6 +189,15 @@ def search_rooms(logger, mysql, Tg, MsgInfo):
 def search_teachers(logger, mysql, Tg, MsgInfo):
     return search_lessons(logger, mysql, Tg, MsgInfo, "teacher", "Преподаватели", "teacher_rasp")
 
+def format_lesson_time(value):
+    if(isinstance(value, timedelta)):
+        total_minutes = int(value.total_seconds() // 60)
+        hours, minutes = divmod(total_minutes, 60)
+        return f"{hours % 24:02d}:{minutes:02d}"
+    if(hasattr(value, "strftime")):
+        return value.strftime("%H:%M")
+    return str(value)[:5]
+
 def entity_rasp(logger, mysql, Tg, MsgInfo, field, icon, search_callback):
     token = MsgInfo.callback_data[1][0]
     try:
@@ -223,7 +232,7 @@ def entity_rasp(logger, mysql, Tg, MsgInfo, field, icon, search_callback):
     lesson_text = []
     for lesson in lessons:
         details = [
-            f"<b>{lesson['time_start'].strftime('%H:%M')}–{lesson['time_end'].strftime('%H:%M')}</b> — {escape(str(lesson['name']))} {escape(str(lesson['type']))}",
+            f"<b>{format_lesson_time(lesson['time_start'])}–{format_lesson_time(lesson['time_end'])}</b> — {escape(str(lesson['name']))} {escape(str(lesson['type']))}",
             f"Группа: {escape(str(lesson['group_name']))}"
         ]
         if(field != "room"):
