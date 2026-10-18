@@ -13,6 +13,18 @@ headers = {
     'User-Agent': "Mozilla/5.0 (compatible; ssturasp_bot/v0.1.3; https://t.me/ssturasp_bot; l27001@ezdomain.ru)"
 }
 
+def normalize_lesson(row):
+    def normalize_time(value):
+        if(isinstance(value, timedelta)):
+            return int(value.total_seconds())
+        parts = [int(i) for i in str(value).split(":")]
+        return parts[0] * 3600 + parts[1] * 60 + (parts[2] if len(parts) > 2 else 0)
+
+    return (
+        str(row['weekday']), normalize_time(row['time_start']), normalize_time(row['time_end']),
+        str(row['teacher']), int(row['lesson_num']), str(row['name']), str(row['type']), str(row['room'])
+    )
+
 def parse_groups():
     attempts = 0
     response = None
@@ -96,11 +108,10 @@ def parse_rasp(group):
             lesson_day = [day_header[0].text, [int(i) for i in day_header[1].text.split(".")]]
             cur_date = date.today()
             if(lesson_day[1][0] == 1 and cur_date.month == 12):
-                cur_date.replace(year=cur_date.year + 1)
+                cur_date = cur_date.replace(year=cur_date.year + 1)
             cur_date = cur_date.replace(day=lesson_day[1][0], month=lesson_day[1][1]).isoformat()
-            mysql.query("DELETE FROM `lessons` WHERE `date` = %s AND `group_id` = %s",
-                    (cur_date, group))
             lesson_num = 1
+            parsed_lessons = []
             for div in day.findAll("div", class_="day-lesson"):
                 if("day-lesson-empty" not in div.get("class")):
                     lesson_hours = div.find("div", class_="lesson-hour").text.strip().replace("\u2014", "").split(" - ")
@@ -113,9 +124,26 @@ def parse_rasp(group):
                     lesson_room = " ".join(lesson_room)
                     lesson_teacher = "/".join(lesson_teacher)
                     if(lesson_teacher in ("", "/")): lesson_teacher = "Нет данных"
-                    mysql.query("REPLACE INTO `lessons` (`date`, `weekday`, `time_start`, `time_end`, `teacher`, `lesson_num`, `name`, `type`, `room`, `group_id`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                        (cur_date, lesson_day[0], lesson_hours[0], lesson_hours[1], lesson_teacher, lesson_num, lesson_name, lesson_type, lesson_room, group))
+                    parsed_lessons.append({
+                        "weekday": lesson_day[0], "time_start": lesson_hours[0], "time_end": lesson_hours[1],
+                        "teacher": lesson_teacher, "lesson_num": lesson_num, "name": lesson_name,
+                        "type": lesson_type, "room": lesson_room
+                    })
                 lesson_num += 1
+
+            existing_lessons = mysql.query(
+                "SELECT `weekday`, `time_start`, `time_end`, `teacher`, `lesson_num`, `name`, `type`, `room` "
+                "FROM `lessons` WHERE `date` = %s AND `group_id` = %s ORDER BY `lesson_num`",
+                (cur_date, group), fetchall=True
+            )
+            if([normalize_lesson(i) for i in existing_lessons] == [normalize_lesson(i) for i in parsed_lessons]):
+                continue
+
+            mysql.query("DELETE FROM `lessons` WHERE `date` = %s AND `group_id` = %s", (cur_date, group))
+            for lesson in parsed_lessons:
+                mysql.query("INSERT INTO `lessons` (`date`, `weekday`, `time_start`, `time_end`, `teacher`, `lesson_num`, `name`, `type`, `room`, `group_id`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (cur_date, lesson['weekday'], lesson['time_start'], lesson['time_end'], lesson['teacher'],
+                    lesson['lesson_num'], lesson['name'], lesson['type'], lesson['room'], group))
         mysql.commit()
     finally:
         mysql.close()

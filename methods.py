@@ -11,20 +11,23 @@ class Mysql:
         self.con = self.make_con()
 
     def query(self,query,variables=(),fetchall=False,lastrow=False):
-        try:
-            cur = self.con.cursor()
-            cur.execute(query, variables)
-        except (InterfaceError,OperationalError):
-            self.con = self.make_con()
-            cur = self.con.cursor()
-            cur.execute(query, variables)
-        if(lastrow == True):
-            return cur.lastrowid
-        if(fetchall == False):
-            data = cur.fetchone()
-        else:
-            data = cur.fetchall()
-        return data
+        for attempt in range(2):
+            try:
+                with self.con.cursor() as cur:
+                    cur.execute(query, variables)
+                    if(lastrow == True):
+                        return cur.lastrowid
+                    if(fetchall == False):
+                        return cur.fetchone()
+                    return cur.fetchall()
+            except (InterfaceError,OperationalError):
+                if(attempt == 1):
+                    raise
+                try:
+                    self.con.close()
+                except (InterfaceError,OperationalError):
+                    pass
+                self.con = self.make_con()
 
     def make_con(self=None):
         return pymysql.connect(host=config.db['host'],
