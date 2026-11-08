@@ -1,6 +1,7 @@
 #!env python3
 import requests
 import os
+import logging
 from bs4 import BeautifulSoup
 from datetime import date, timedelta, datetime
 from time import sleep
@@ -12,6 +13,20 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 headers = {
     'User-Agent': "Mozilla/5.0 (compatible; ssturasp_bot/v0.1.3; https://t.me/ssturasp_bot; l27001@ezdomain.ru)"
 }
+logger = logging.getLogger(__name__)
+
+def fetch_page(url, attempts=5):
+    for attempt in range(1, attempts + 1):
+        try:
+            response = requests.get(url, headers=headers, timeout=5)
+            if(response.status_code != 200):
+                raise requests.HTTPError(f'Unexpected HTTP status: {response.status_code}')
+            return response
+        except requests.RequestException as e:
+            logger.warning("Can't fetch %s (attempt %s/%s): %s", url, attempt, attempts, e)
+            if(attempt < attempts):
+                sleep(5)
+    return None
 
 def normalize_lesson(row):
     def normalize_time(value):
@@ -26,19 +41,9 @@ def normalize_lesson(row):
     )
 
 def parse_groups():
-    attempts = 0
-    response = None
-    while attempts < 3:
-        try:
-            response = requests.get("https://rasp.sstu.ru/", headers=headers, timeout=5)
-            if(response.status_code != 200): raise RuntimeError(f'Unexpected http code for parse_groups - {response.status_code}')
-            break
-        except Exception as e:
-            sleep(1)
-            attempts += 1
+    response = fetch_page("https://rasp.sstu.ru/")
     if(response is None):
-        print("Can't parse group list")
-        exit()
+        raise RuntimeError("Can't parse group list")
     page = BeautifulSoup(response.text, "html.parser")
     cards = page.find("div", id="raspStructure").findAll("div", class_="card")
     groups = []
@@ -80,22 +85,15 @@ def parse_groups():
     return groups
 
 def parse_rasp(group):
-    attempts = 0
-    response = None
     mysql = methods.Mysql(autocommit=False)
-    sstugroup = mysql.query("SELECT sstu_id FROM groups WHERE id=%s", (group, ))
-    if(not sstugroup):
-        mysql.close()
-        return
-    while attempts < 3:
-        try:
-            response = requests.get(f"https://rasp.sstu.ru/rasp/group/{sstugroup['sstu_id']}", headers=headers, timeout=5)
-            if(response.status_code != 200): raise RuntimeError(f'Unexpected http code for group #{group} - {response.status_code}')
-            break
-        except Exception as e:
-            sleep(1)
-            attempts += 1
     try:
+        sstugroup = mysql.query("SELECT sstu_id FROM groups WHERE id=%s", (group, ))
+        if(not sstugroup):
+            return
+        response = fetch_page(f"https://rasp.sstu.ru/rasp/group/{sstugroup['sstu_id']}")
+        if(response is None):
+            logger.error("Skipping group #%s: schedule unavailable", group)
+            return
         page = BeautifulSoup(response.text, "html.parser")
         if(page is None):
             return
