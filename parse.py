@@ -2,6 +2,7 @@
 import requests
 import os
 import logging
+import argparse
 from bs4 import BeautifulSoup
 from datetime import date, timedelta, datetime
 from time import sleep
@@ -15,6 +16,14 @@ headers = {
 }
 logger = logging.getLogger(__name__)
 
+def configure_logging(debug=False):
+    logging.basicConfig(
+        level=logging.DEBUG if debug else logging.ERROR,
+        format="%(asctime)s %(name)s.%(levelname)s: %(message)s",
+        datefmt="%Y.%m.%d %H:%M:%S",
+        force=True,
+    )
+
 def fetch_page(url, attempts=5):
     for attempt in range(1, attempts + 1):
         try:
@@ -23,7 +32,7 @@ def fetch_page(url, attempts=5):
                 raise requests.HTTPError(f'Unexpected HTTP status: {response.status_code}')
             return response
         except requests.RequestException as e:
-            logger.warning("Can't fetch %s (attempt %s/%s): %s", url, attempt, attempts, e)
+            logger.debug("Can't fetch %s (attempt %s/%s): %s", url, attempt, attempts, e, exc_info=True)
             if(attempt < attempts):
                 sleep(5)
     return None
@@ -92,7 +101,7 @@ def parse_rasp(group):
             return
         response = fetch_page(f"https://rasp.sstu.ru/rasp/group/{sstugroup['sstu_id']}")
         if(response is None):
-            logger.error("Skipping group #%s: schedule unavailable", group)
+            logger.debug("Skipping group #%s: schedule unavailable", group)
             return
         page = BeautifulSoup(response.text, "html.parser")
         if(page is None):
@@ -151,7 +160,7 @@ def parse_weather():
         return 0
     response = requests.get(f"https://api.openweathermap.org/data/2.5/forecast?appid={openweathermap_key}&units=metric&lat=51.530018&lon=46.034683&lang=ru", headers=headers)
     if(response.status_code != 200):
-        print(f"Got unknown HTTP status code: {response.status_code}")
+        logger.debug("Weather unavailable: HTTP status %s", response.status_code)
         return 0
     data = response.json()
     mysql = methods.Mysql(autocommit=False)
@@ -208,22 +217,37 @@ def notify_tomorrow():
     finally:
         mysql.close()
 
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="SSTU schedule parser")
+    parser.add_argument('--debug', action='store_true', help="enable detailed logs and tracebacks")
+    parser.add_argument('command', nargs='?', choices=('weather', 'groups', 'group', 'notify'))
+    parser.add_argument('group_id', nargs='?', type=int, metavar='ID')
+    args = parser.parse_args(argv)
+    if(args.command == 'group' and args.group_id is None):
+        parser.error("group requires ID")
+    if(args.command != 'group' and args.group_id is not None):
+        parser.error("ID is only supported for group")
+
+    configure_logging(args.debug)
+    try:
+        logger.debug("Starting parser: %s", args.command or 'all groups')
+        if(args.command is None):
+            groups = parse_groups()
+            with Pool(initializer=configure_logging, initargs=(args.debug,)) as p:
+                p.map(parse_rasp, groups)
+        elif(args.command == 'weather'):
+            parse_weather()
+        elif(args.command == 'groups'):
+            parse_groups()
+        elif(args.command == 'group'):
+            parse_rasp(args.group_id)
+        elif(args.command == 'notify'):
+            notify_tomorrow()
+        logger.debug("Parser finished")
+    except Exception as e:
+        logger.error("Parser failed: %s", e, exc_info=args.debug)
+        return 1
+    return 0
+
 if(__name__ == "__main__"):
-    import sys
-    if(len(sys.argv) == 1):
-        groups = parse_groups()
-        with Pool() as p:
-            p.map(parse_rasp, groups)
-    elif(sys.argv[1] == "weather"):
-        parse_weather()
-    elif(sys.argv[1] == "groups"):
-        parse_groups()
-    elif(sys.argv[1] == "group"):
-        if(len(sys.argv) < 2 or sys.argv[2].isdigit() == False):
-            print("./parse.py group <ID>")
-        else:
-            parse_rasp(int(sys.argv[2]))
-    elif(sys.argv[1] == "notify"):
-        notify_tomorrow()
-    else:
-        print("./parse.py [weather|groups|group|notify]")
+    raise SystemExit(main())
